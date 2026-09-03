@@ -471,9 +471,9 @@ def main():
             if PORT_MODE in ("443", "both"):
                 tls_params = f"tls&path={encoded_path}&host={tunnel_host_info}&sni={tunnel_host_info}{xhttp_params}"
                 if transport == "xhttp": tls_params += "&alpn=h3%2Ch2"
-                payloads.append(f"vless://{uuid_str}@{sni}:443?{params}{tls_params}#{urllib.parse.quote(label + ' ' + ('XHTTP' if transport == 'xhttp' else 'WS') + ' 443', safe='')}")
+                payloads.append(f"vless://{uuid_str}@{sni}:443?{params}{tls_params}#{urllib.parse.quote(label + ' 443', safe='')}")
             if PORT_MODE in ("80", "both") and RUN_MODE != "direct":
-                payloads.append(f"vless://{uuid_str}@{sni}:80?{params}&path={encoded_path}&host={tunnel_host_info}{xhttp_params}#{urllib.parse.quote(label + ' ' + ('XHTTP' if transport == 'xhttp' else 'WS') + ' 80', safe='')}")
+                payloads.append(f"vless://{uuid_str}@{sni}:80?{params}&path={encoded_path}&host={tunnel_host_info}{xhttp_params}#{urllib.parse.quote(label + ' 80', safe='')}")
 
         for sni_entry in fake_sni.split(","):
             sni_entry = sni_entry.strip()
