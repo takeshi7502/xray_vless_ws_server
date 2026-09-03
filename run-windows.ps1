@@ -86,6 +86,7 @@ function Write-EnvFile($Settings) {
     Write-Ok "Da ghi .env (RUN_MODE=$($Settings['RUN_MODE']))"
 }
 
+# Retained for optional Subscription Hub support. Setup modes do not call it.
 function Get-BaseHubUrl([string]$Url) {
     return $Url -replace "/sync$", ""
 }
@@ -249,27 +250,24 @@ function Configure-QuickTunnel {
     $settings["TUNNEL_TOKEN"] = ""
     $settings["TRANSPORT"] = "websocket"
 
-    Write-Step "1/7" "Thong tin server"
+    Write-Step "1/6" "Thong tin server"
     $settings["XRAY_UUID"] = Read-Value " VLESS UUID" $(if ($settings["XRAY_UUID"]) { $settings["XRAY_UUID"] } else { [guid]::NewGuid().ToString() })
 
-    Write-Step "2/7" "Fake SNI"
+    Write-Step "2/6" "Fake SNI"
     Select-FakeSni $settings
 
-    Write-Step "3/7" "Duong dan WebSocket"
+    Write-Step "3/6" "Duong dan WebSocket"
     $settings["WS_PATH"] = Read-Value " Duong dan WebSocket" $settings["WS_PATH"]
     if (-not $settings["WS_PATH"].StartsWith("/")) { $settings["WS_PATH"] = "/$($settings['WS_PATH'])" }
     Write-Ok "Transport: WebSocket"
 
-    Write-Step "4/7" "Port link VLESS"
+    Write-Step "4/6" "Port link VLESS"
     Select-PortMode $settings
 
-    Write-Step "5/7" "Subscription Hub (tuy chon)"
-    Configure-Subscription $settings
-
-    Write-Step "6/7" "Vi tri node"
+    Write-Step "5/6" "Vi tri node"
     Configure-Country $settings
 
-    Write-Step "7/7" "Luu va khoi dong"
+    Write-Step "6/6" "Luu va khoi dong"
     Start-Server $settings
 }
 
@@ -279,7 +277,7 @@ function Configure-NamedTunnel {
     $settings = Read-EnvFile
     $defaultHost = if ($settings["WS_HOST"] -eq "trycloudflare.com") { $settings["CUSTOM_DOMAIN"] } else { $settings["WS_HOST"] }
 
-    Write-Step "1/7" "Domain va tunnel credentials"
+    Write-Step "1/6" "Domain va tunnel credentials"
     $settings["WS_HOST"] = Read-Value " Domain (vd vless.example.com)" $defaultHost
     $settings["TUNNEL_TOKEN"] = Read-Value " Tunnel connector token" $settings["TUNNEL_TOKEN"]
     if ([string]::IsNullOrWhiteSpace($settings["WS_HOST"]) -or $settings["WS_HOST"] -eq "trycloudflare.com") { throw "Can domain cho Named Tunnel." }
@@ -289,23 +287,20 @@ function Configure-NamedTunnel {
     $settings["CUSTOM_DOMAIN"] = $settings["WS_HOST"]
     $settings["XRAY_UUID"] = Read-Value " VLESS UUID" $(if ($settings["XRAY_UUID"]) { $settings["XRAY_UUID"] } else { [guid]::NewGuid().ToString() })
 
-    Write-Step "2/7" "Fake SNI"
+    Write-Step "2/6" "Fake SNI"
     Select-FakeSni $settings
 
-    Write-Step "3/7" "Diem cuoi transport"
+    Write-Step "3/6" "Diem cuoi transport"
     $settings["WS_PATH"] = Read-Value " Duong dan WebSocket" $settings["WS_PATH"]
     Select-Transport $settings
 
-    Write-Step "4/7" "Port link VLESS"
+    Write-Step "4/6" "Port link VLESS"
     Select-PortMode $settings
 
-    Write-Step "5/7" "Subscription Hub (tuy chon)"
-    Configure-Subscription $settings
-
-    Write-Step "6/7" "Vi tri node"
+    Write-Step "5/6" "Vi tri node"
     Configure-Country $settings
 
-    Write-Step "7/7" "Luu va khoi dong"
+    Write-Step "6/6" "Luu va khoi dong"
     Start-Server $settings
 }
 
@@ -315,7 +310,7 @@ function Configure-Direct {
     $settings = Read-EnvFile
     $defaultHost = if ($settings["WS_HOST"] -eq "trycloudflare.com") { $settings["CUSTOM_DOMAIN"] } else { $settings["WS_HOST"] }
 
-    Write-Step "1/7" "Domain va origin listener"
+    Write-Step "1/6" "Domain va origin listener"
     $settings["WS_HOST"] = Read-Value " Domain" $defaultHost
     $settings["PORT"] = Read-Value " Origin listen address:port" "0.0.0.0:80"
     if ([string]::IsNullOrWhiteSpace($settings["WS_HOST"]) -or $settings["WS_HOST"] -eq "trycloudflare.com") { throw "Can domain cho Direct mode." }
@@ -324,23 +319,20 @@ function Configure-Direct {
     $settings["CUSTOM_DOMAIN"] = $settings["WS_HOST"]
     $settings["XRAY_UUID"] = Read-Value " VLESS UUID" $(if ($settings["XRAY_UUID"]) { $settings["XRAY_UUID"] } else { [guid]::NewGuid().ToString() })
 
-    Write-Step "2/7" "Fake SNI"
+    Write-Step "2/6" "Fake SNI"
     Select-FakeSni $settings
 
-    Write-Step "3/7" "Diem cuoi transport"
+    Write-Step "3/6" "Diem cuoi transport"
     $settings["WS_PATH"] = Read-Value " Duong dan WebSocket" $settings["WS_PATH"]
     Select-Transport $settings
 
-    Write-Step "4/7" "Port link VLESS"
+    Write-Step "4/6" "Port link VLESS"
     Select-PortMode $settings
 
-    Write-Step "5/7" "Subscription Hub (tuy chon)"
-    Configure-Subscription $settings
-
-    Write-Step "6/7" "Vi tri node"
+    Write-Step "5/6" "Vi tri node"
     Configure-Country $settings
 
-    Write-Step "7/7" "Luu va khoi dong"
+    Write-Step "6/6" "Luu va khoi dong"
     Start-Server $settings
 }
 

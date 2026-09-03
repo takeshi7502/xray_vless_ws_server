@@ -121,6 +121,7 @@ ask_port_mode(){
     esac
     ok "Che do port: $PORT_MODE"
 }
+# Retained for optional Subscription Hub support. Setup modes do not call it.
 normalize_hub_url(){
     local value="$1"
     value="${value%/}"
@@ -424,29 +425,26 @@ quick_mode(){
     info "Khong can domain. Cloudflare cap hostname ngau nhien sau moi lan chay."
     load_existing
 
-    setup_step "1/7" "Thong tin server"
+    setup_step "1/6" "Thong tin server"
     UUID="$(ask_val "VLESS UUID" "${UUID:-$(uuid_gen)}")"
 
-    setup_step "2/7" "Fake SNI"
+    setup_step "2/6" "Fake SNI"
     ask_fake_sni
 
-    setup_step "3/7" "Duong dan WebSocket"
+    setup_step "3/6" "Duong dan WebSocket"
     WS_PATH="$(ask_val "Duong dan WebSocket" "${WS_PATH:-$DEF_WS_PATH}")"
     quick_tunnel_transport
 
-    setup_step "4/7" "Port link VLESS"
+    setup_step "4/6" "Port link VLESS"
     RUN_MODE="quick_tunnel"; PORT="$DEF_PORT_QUICK"
     [ -n "$WS_HOST" ] && [ "$WS_HOST" != "$DEF_WS_HOST" ] && CUSTOM_DOMAIN="$WS_HOST"
     WS_HOST="$DEF_WS_HOST"
     ask_port_mode
 
-    setup_step "5/7" "Subscription Hub (tuy chon)"
-    ask_subscription_sync || return 1
-
-    setup_step "6/7" "Vi tri node"
+    setup_step "5/6" "Vi tri node"
     ask_country
 
-    setup_step "7/7" "Luu va khoi dong"
+    setup_step "6/6" "Luu va khoi dong"
     write_env
     start_server
 }
@@ -461,7 +459,7 @@ named_mode(){
     read -r -p " Nhan Enter khi san sang..." _
     load_existing
 
-    setup_step "1/7" "Domain va tunnel credentials"
+    setup_step "1/6" "Domain va tunnel credentials"
     local def_host="${WS_HOST:-}"
     [ "$def_host" = "trycloudflare.com" ] || [ -z "$def_host" ] && def_host="${CUSTOM_DOMAIN:-}"
     WS_HOST="$(ask_val "Domain (vi du: vless.example.com)" "$def_host")"
@@ -470,23 +468,20 @@ named_mode(){
     [ -z "$TUNNEL_TOKEN" ] && { err "Can token."; return 1; }
     RUN_MODE="named_tunnel"; PORT="$DEF_PORT_NAMED"; UUID="${UUID:-$(uuid_gen)}"
 
-    setup_step "2/7" "Fake SNI"
+    setup_step "2/6" "Fake SNI"
     ask_fake_sni
 
-    setup_step "3/7" "Diem cuoi transport"
+    setup_step "3/6" "Diem cuoi transport"
     WS_PATH="${WS_PATH:-$DEF_WS_PATH}"; TRANSPORT="${TRANSPORT:-$DEF_TRANSPORT}"
     ask_transport
 
-    setup_step "4/7" "Port link VLESS"
+    setup_step "4/6" "Port link VLESS"
     ask_port_mode
 
-    setup_step "5/7" "Subscription Hub (tuy chon)"
-    ask_subscription_sync || return 1
-
-    setup_step "6/7" "Vi tri node"
+    setup_step "5/6" "Vi tri node"
     ask_country
 
-    setup_step "7/7" "Luu va khoi dong"
+    setup_step "6/6" "Luu va khoi dong"
     CUSTOM_DOMAIN="$WS_HOST"
     write_env
     start_server
@@ -503,7 +498,7 @@ direct_mode(){
     read -r -p " Nhan Enter khi san sang..." _
     load_existing
 
-    setup_step "1/7" "Domain va origin listener"
+    setup_step "1/6" "Domain va origin listener"
     local def_host="${WS_HOST:-}"
     [ "$def_host" = "trycloudflare.com" ] || [ -z "$def_host" ] && def_host="${CUSTOM_DOMAIN:-}"
     WS_HOST="$(ask_val "Domain" "$def_host")"
@@ -511,23 +506,20 @@ direct_mode(){
     [ -z "$WS_HOST" ] || [ "$WS_HOST" = "trycloudflare.com" ] && { err "Can domain."; return 1; }
     RUN_MODE="direct"; UUID="${UUID:-$(uuid_gen)}"
 
-    setup_step "2/7" "Fake SNI"
+    setup_step "2/6" "Fake SNI"
     ask_fake_sni
 
-    setup_step "3/7" "Diem cuoi transport"
+    setup_step "3/6" "Diem cuoi transport"
     WS_PATH="${WS_PATH:-$DEF_WS_PATH}"; TRANSPORT="${TRANSPORT:-$DEF_TRANSPORT}"
     ask_transport
 
-    setup_step "4/7" "Port link VLESS"
+    setup_step "4/6" "Port link VLESS"
     ask_port_mode
 
-    setup_step "5/7" "Subscription Hub (tuy chon)"
-    ask_subscription_sync || return 1
-
-    setup_step "6/7" "Vi tri node"
+    setup_step "5/6" "Vi tri node"
     ask_country
 
-    setup_step "7/7" "Luu va khoi dong"
+    setup_step "6/6" "Luu va khoi dong"
     CUSTOM_DOMAIN="$WS_HOST"
     write_env
     start_server
