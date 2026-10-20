@@ -46,7 +46,7 @@ reapplying or undoing fork-specific behavior. No automatic deployment is perform
 ## Using the New Options
 
 - Open menu **7** in `bash run.sh` or `run-windows.bat` for WARP, ECH, TLS, logger and output format. Restart after saving. Existing mode setup menus preserve these options.
-- Select address preset **4** for MobiFone or **5** for both old addresses plus MobiFone. Preset **3** keeps only the two old addresses. These are client destinations, not TLS SNI. Carrier billing/availability must be tested separately; preset names are not a guarantee.
+- Select address preset **1** for FreeTiktok, **2** for FreeVNPT, **3** for FreeMobiFone, or **4** for all three (the default for new installations). These are client destinations, not TLS SNI. Carrier billing/availability must be tested separately; preset names are not a guarantee.
 - Quick Tunnel remains WebSocket-only in the menus. Named and Direct retain dual transport support.
 - ECH requires client support and appropriate DNS HTTPS/ECH records for the actual tunnel hostname. An HTTPS DoH URL alone cannot provide those records.
 - `TLS_PORT=0.0.0.0:443` requires an existing `TLS_PEM` fullchain and matching unencrypted `TLS_KEY`. For Cloudflare Full (strict), use a certificate valid for your origin hostname and choose a single transport. TLS serves only the first listed transport; choose `TRANSPORT=xhttp` if that should be xHTTP. Other transport links need the plaintext origin. `PORT` remains plaintext and independent.

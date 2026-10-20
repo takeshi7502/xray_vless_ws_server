@@ -53,30 +53,27 @@ ask_country(){
     [ -n "$COUNTRY_CODE" ] && ok "Country: $COUNTRY_CODE" || info "No country flag."
 }
 ask_fake_sni(){
-    local choice default_choice="5"
+    local choice default_choice="4"
     case "$FAKE_SNI" in
         "api24-normal-alisg.tiktokv.com#FreeTiktok"|"api24-normal-alisg.tiktokv.com#Free Tiktok") default_choice="1" ;;
         "172.67.168.158#FreeVNPT"|"172.67.168.158#FreeVina Ko Nen"|"172.67.168.158#Free Vina Ko Nen") default_choice="2" ;;
-        "$LEGACY_FAKE_SNI"|"api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen") default_choice="3" ;;
-        "$NEW_FAKE_SNI"|"vega-prime.huskydg.dpdns.org#Free Mobifone") default_choice="4" ;;
+        "$NEW_FAKE_SNI"|"vega-prime.huskydg.dpdns.org#Free Mobifone") default_choice="3" ;;
         "$DEF_FAKE_SNI"|"") ;;
         *) default_choice="tuy chinh" ;;
     esac
     echo -e " ${BLUE}[i]${NC}  FAKE_SNI selection:"
     echo "   1. FreeTiktok  (api24-normal-alisg.tiktokv.com)"
     echo "   2. FreeVNPT  (172.67.168.158)"
-    echo "   3. Hai address cu"
-    echo "   4. FreeMobiFone (vega-prime.huskydg.dpdns.org)"
-    echo "   5. Ca hai address cu + Mobifone (mac dinh cho cai moi)"
+    echo "   3. FreeMobiFone (vega-prime.huskydg.dpdns.org)"
+    echo "   4. Ca ba (mac dinh cho cai moi)"
     echo "   Hoac nhap gia tri FAKE_SNI tuy chinh"
-    read -r -p " Chon [1-5/tuy chinh] [$default_choice]: " choice
+    read -r -p " Chon [1-4/tuy chinh] [$default_choice]: " choice
     choice="${choice:-$default_choice}"
     case "$choice" in
         1) FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok" ;;
         2) FAKE_SNI="172.67.168.158#FreeVNPT" ;;
-        3) FAKE_SNI="$LEGACY_FAKE_SNI" ;;
-        4) FAKE_SNI="$NEW_FAKE_SNI" ;;
-        5) FAKE_SNI="$DEF_FAKE_SNI" ;;
+        3) FAKE_SNI="$NEW_FAKE_SNI" ;;
+        4) FAKE_SNI="$DEF_FAKE_SNI" ;;
         "tuy chinh") ;;
         *) FAKE_SNI="$choice" ;;
     esac

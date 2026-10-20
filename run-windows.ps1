@@ -104,28 +104,24 @@ function Select-FakeSni($Settings) {
         "172.67.168.158#FreeVina Ko Nen" { "2" }
         "172.67.168.158#Free Vina Ko Nen" { "2" }
         "172.67.168.158#FreeVNPT" { "2" }
-        $LegacyAddresses { "3" }
-        $NewAddresses { "4" }
-        "vega-prime.huskydg.dpdns.org#Free Mobifone" { "4" }
-        $Defaults["FAKE_SNI"] { "5" }
-        "api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen" { "3" }
-        "" { "5" }
+        $NewAddresses { "3" }
+        "vega-prime.huskydg.dpdns.org#Free Mobifone" { "3" }
+        $Defaults["FAKE_SNI"] { "4" }
+        "" { "4" }
         default { "tuy chinh" }
     }
     Write-Info "Chon domain hien trong ten link."
     Write-Host "   1. FreeTiktok  (api24-normal-alisg.tiktokv.com)"
     Write-Host "   2. FreeVNPT  (172.67.168.158)"
-    Write-Host "   3. Hai address cu"
-    Write-Host "   4. FreeMobiFone (vega-prime.huskydg.dpdns.org)"
-    Write-Host "   5. Ca hai address cu + Mobifone (mac dinh cho cai moi)"
+    Write-Host "   3. FreeMobiFone (vega-prime.huskydg.dpdns.org)"
+    Write-Host "   4. Ca ba (mac dinh cho cai moi)"
     Write-Host "   Hoac nhap gia tri tuy chinh."
-    $choice = Read-Value " Chon [1-5/tuy chinh]" $default
+    $choice = Read-Value " Chon [1-4/tuy chinh]" $default
     switch ($choice) {
         "1" { $Settings["FAKE_SNI"] = "api24-normal-alisg.tiktokv.com#FreeTiktok" }
         "2" { $Settings["FAKE_SNI"] = "172.67.168.158#FreeVNPT" }
-        "3" { $Settings["FAKE_SNI"] = $LegacyAddresses }
-        "4" { $Settings["FAKE_SNI"] = $NewAddresses }
-        "5" { $Settings["FAKE_SNI"] = $Defaults["FAKE_SNI"] }
+        "3" { $Settings["FAKE_SNI"] = $NewAddresses }
+        "4" { $Settings["FAKE_SNI"] = $Defaults["FAKE_SNI"] }
         "tuy chinh" { }
         default { $Settings["FAKE_SNI"] = $choice.Trim() }
     }
