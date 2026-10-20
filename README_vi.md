@@ -6,6 +6,30 @@ Một dự án Proof of Concept (PoC) tự động bằng Python phục vụ cho
 
 ---
 
+## Cập Nhật Upstream (20/10/2026)
+
+Đã tích hợp upstream đến `7503b16`, giữ ba chế độ Quick / Named / Direct,
+No TLS, systemd và các bản sửa Windows/Termux của fork. Bổ sung address
+MobiFone/VNPT/TikTok mới, DNS ECH tùy chọn, xHTTP `auto`, listener IPv6,
+listener TLS riêng, WARP `ip6only` và logger nội bộ có mật khẩu.
+Không ghi đè `.env` cũ; muốn dùng address mới thì chọn lại trong menu cấu hình.
+
+Mở mục **7** để chỉnh nâng cao. `frp_info.config` vẫn là link thô mặc định;
+luôn có thêm `frp_info.base64`. Xem [.env.example](.env.example) và
+[bảng đối chiếu toàn bộ thay đổi, cách dùng và lưu ý nâng cấp](docs/UPSTREAM_INTEGRATION.md).
+
+### Kiểm Tra Gói Tin
+
+Hai ảnh của tác giả minh họa WebSocket qua TCP/TLS và xHTTP qua HTTP/3 (QUIC):
+
+![Gói tin WebSocket](docs/images/vless_websocket_wireshark.jpg)
+![Gói tin xHTTP qua HTTP/3](docs/images/vless_xhttp_wireshark.jpg)
+
+Khóa của gói QUIC Initial có thể suy ra công khai nên công cụ phân tích vẫn đọc
+được ClientHello mà không cần session keys. HTTP/3 tự nó không giấu SNI; ECH chỉ
+bảo vệ ClientHello bên trong khi máy chủ, DNS và ứng dụng cùng hỗ trợ. Các ảnh
+không chứng minh mọi nhà mạng đều miễn data hoặc xHTTP luôn nhanh/an toàn hơn.
+
 ## Kiến Trúc: Bản Thử Nghiệm (PoC) vs. Domain Riêng vs. Hạ Tầng Thực Tế (Production)
 
 Việc hiểu rõ sự phát triển từ bộ suite thử nghiệm tạm thời đến việc tích hợp Tên miền riêng và các kiến trúc thương mại thực tế là vô cùng quan trọng:
@@ -127,13 +151,14 @@ python main.py
 ## Cấu Hình Tệp Môi Trường (`.env`)
 
 ```ini
-PORT=127.0.0.1:8888,0.0.0.0:443,0.0.0.0:80
-XRAY_UUID=5ccad305-e243-4bb2-abf0-1e37189ce4e8
-FAKE_SNI=api24-normal-alisg.tiktokv.com
+RUN_MODE=named_tunnel
+PORT=127.0.0.1:8888
+XRAY_UUID=
+FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone
 WS_PATH=/vless
 WS_HOST=v2ray.tenmien.com
 TRANSPORT=websocket,xhttp
-XHTTP_MODE=packet-up
+XHTTP_MODE=auto
 TUNNEL_TOKEN=eyJhSWQiOiI...
 ENABLE_WARP=false
 WEBHOOK_URL=
@@ -142,15 +167,16 @@ WEBHOOK_URL=
 
 ### Giải Thích Các Biến Cấu Hình:
 
-* **`PORT`**: Các cổng/giao diện mạng cho Xray lắng nghe.
+* **`RUN_MODE`**: Chọn rõ `quick_tunnel`, `named_tunnel` hoặc `direct`; chỉ thêm token không tự đổi chế độ.
+* **`PORT`**: Các cổng/giao diện nhận plaintext của Xray. Đặt cổng 443 không tự bật TLS; muốn TLS phải dùng `TLS_PORT` cùng certificate/key có sẵn.
 * **`XRAY_UUID`**: Mã UUID xác thực người dùng VLESS.
-* **`FAKE_SNI`**: Tên miền miễn phí data dùng để phân giải IP kết nối.
-* **`WS_PATH`**: Đường dẫn WebSocket/xHTTP cố định: `/vless`.
+* **`FAKE_SNI`**: Address phía client dùng để phân giải IP, không phải TLS SNI. Tên preset không bảo đảm được nhà mạng miễn data.
+* **`WS_PATH`**: Đường dẫn WebSocket/xHTTP, mặc định `/vless`.
 * **`WS_HOST`**: Tên miền riêng cấu hình trên Cloudflare Tunnel, hoặc để `trycloudflare.com` nếu dùng tunnel tạm thời.
 * **`TRANSPORT`**: `websocket`, `xhttp`, hoặc `websocket,xhttp` để chạy song song cả hai. Xem thêm mục [So Sánh Giao Thức](#so-sánh-giao-thức-websocket-vs-xhttp) ở trên. Ở chế độ song song, cả hai giao thức được tự động phân luồng (demux) trên cùng một port/path công khai — không cần cấu hình thêm gì phía Cloudflare.
-* **`XHTTP_MODE`**: `packet-up` (khuyên dùng, tương thích CDN tốt nhất), `stream-up`, hoặc `stream-one`. Chỉ có tác dụng khi `TRANSPORT` có chứa `xhttp`.
+* **`XHTTP_MODE`**: `auto` (mặc định mới), `packet-up`, `stream-up`, hoặc `stream-one`. Chỉ có tác dụng khi `TRANSPORT` chứa `xhttp`; giá trị cũ đã cấu hình vẫn được giữ.
 * **`TUNNEL_TOKEN`**: Token của Cloudflare Tunnel nếu bạn muốn dùng Domain riêng cố định. Để trống nếu muốn dùng tunnel miễn phí ngẫu nhiên.
-* **`ENABLE_WARP`**: Đặt `true` để bật WARP làm outbound cho Xray (qua `wgcf`).
+* **`ENABLE_WARP`**: `false` tắt WARP; `true` đưa tất cả outbound qua WARP; `ip6only` đưa đích IPv6 qua WARP và giữ IPv4 đi trực tiếp.
 * **`WEBHOOK_URL`**: Đường dẫn webhook tùy chọn để nhận thông tin cấu hình link sau khi khởi tạo thành công.
 
 ---

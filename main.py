@@ -3,9 +3,8 @@ import json
 import re
 import shutil
 import socket
-from urllib import request
-from sys import prefix
-from dotenv import load_dotenv
+from dotenv import load_dotenv, set_key
+import ssl
 import threading
 import subprocess
 import platform
@@ -14,6 +13,10 @@ import time
 from logging_site import RealtimeLogger
 import requests
 import importlib
+from runtime_config import (
+    DEFAULT_ADDRESSES, build_links, configure_routing, local_public_ips, loopback_target,
+    make_inbound, parse_listeners, url_host, validate_bindings, validate_ech, write_subscription,
+)
 
 xray_downloader = importlib.import_module("download-xray")
 cloudflared_downloader = importlib.import_module("download-cloudflared")
@@ -26,17 +29,25 @@ def main():
     default_configs = {
         "PORT": "127.0.0.1:8888",
         "XRAY_UUID": str(uuid.uuid4()),
-        "FAKE_SNI": "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen",
+        "FAKE_SNI": DEFAULT_ADDRESSES,
         "WS_PATH": "/vless",
         "WS_HOST": "trycloudflare.com",
         "TRANSPORT": "websocket",
-        "XHTTP_MODE": "packet-up",
+        "XHTTP_MODE": "auto",
         "ENABLE_WARP": "false",
         "WEBHOOK_URL": "",
         "TUNNEL_TOKEN": "",
         "COUNTRY_CODE": "",
         "PORT_MODE": "443",
-        "RUN_MODE": "quick_tunnel"
+        "RUN_MODE": "quick_tunnel",
+        "DNSECH": "",
+        "TLS_PORT": "",
+        "TLS_KEY": "",
+        "TLS_PEM": "",
+        "PASSWORD": "",
+        "LOGGER_HOST": "127.0.0.1",
+        "DEBUG_MODE": "false",
+        "FRP_INFO_FORMAT": "plain",
     }
     START_TIME = int(time.time())
 
@@ -46,8 +57,9 @@ def main():
     def get_public_url():
         # Get ip via ipify
         try:
-            ip = requests.get("https://api.ipify.org").text
-            return ip
+            response = requests.get("https://api.ipify.org", timeout=10)
+            response.raise_for_status()
+            return response.text.strip()
         except Exception as e:
             print(f"[!] Failed to get public IP: {e}")
             return "0.0.0.0"
@@ -67,17 +79,40 @@ def main():
             print("[*] Found .env configuration.")
 
     init_env_file()
-    load_dotenv()
+    load_dotenv(".env")
 
     # Read raw PORT string from .env
     PORT_ENV = get_os_env("PORT")
-    UUID = get_os_env("XRAY_UUID")
+    UUID = get_os_env("XRAY_UUID").strip()
+    if not UUID:
+        UUID = str(uuid.uuid4())
+        set_key(".env", "XRAY_UUID", UUID, quote_mode="never")
     FAKE_SNI = get_os_env("FAKE_SNI")
-    WS_PATH = "/vless"
+    WS_PATH = get_os_env("WS_PATH") or "/vless"
     WS_HOST = get_os_env("WS_HOST")
     WEBHOOK_URL = get_os_env("WEBHOOK_URL")
     TUNNEL_TOKEN = get_os_env("TUNNEL_TOKEN").strip()
-    ENABLE_WARP = get_os_env("ENABLE_WARP").lower() == "true"
+    WARP_MODE = get_os_env("ENABLE_WARP").strip().lower()
+    if WARP_MODE not in ("false", "true", "ip6only"):
+        raise ValueError("ENABLE_WARP must be false, true, or ip6only")
+    ENABLE_WARP = WARP_MODE != "false"
+    DNSECH = validate_ech(get_os_env("DNSECH").strip())
+    OUTPUT_FORMAT = get_os_env("FRP_INFO_FORMAT").strip().lower()
+    if OUTPUT_FORMAT not in ("plain", "base64"):
+        raise ValueError("FRP_INFO_FORMAT must be plain or base64")
+    TLS_PORT = get_os_env("TLS_PORT").strip()
+    tls_listeners = parse_listeners(TLS_PORT) if TLS_PORT else []
+    certificate = None
+    if tls_listeners:
+        cert_file, key_file = get_os_env("TLS_PEM").strip(), get_os_env("TLS_KEY").strip()
+        if not cert_file or not key_file:
+            raise ValueError("TLS_PORT requires TLS_PEM and TLS_KEY; certificates are not generated automatically")
+        ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER).load_cert_chain(cert_file, key_file, password="")
+        certificate = (os.path.abspath(cert_file), os.path.abspath(key_file))
+    LOGGER_HOST = get_os_env("LOGGER_HOST").strip() or "127.0.0.1"
+    PASSWORD = get_os_env("PASSWORD")
+    if LOGGER_HOST not in ("127.0.0.1", "::1", "localhost") and not PASSWORD:
+        raise ValueError("A non-local LOGGER_HOST requires PASSWORD; use an SSH tunnel for remote access")
     DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
     RUN_MODE = get_os_env("RUN_MODE").strip().lower()
     COUNTRY_CODE = get_os_env("COUNTRY_CODE").strip().upper()
@@ -118,38 +153,32 @@ def main():
         TRANSPORTS = ["websocket"]
     TRANSPORT = ",".join(TRANSPORTS)
     DUAL_TRANSPORT = len(TRANSPORTS) == 2
+    if tls_listeners and DUAL_TRANSPORT:
+        print(f"[!] TLS_PORT serves only {TRANSPORTS[0]}. Other transport links require the plaintext origin; choose one transport for Cloudflare Full (strict).")
 
     XHTTP_MODE = get_os_env("XHTTP_MODE").strip().lower()
-    allowed_xhttp_modes = {"packet-up", "stream-up", "stream-one"}
+    allowed_xhttp_modes = {"auto", "packet-up", "stream-up", "stream-one"}
     if XHTTP_MODE not in allowed_xhttp_modes:
-        print(f"[!] Unknown XHTTP_MODE '{XHTTP_MODE}', falling back to 'packet-up'.")
-        XHTTP_MODE = "packet-up"
+        print(f"[!] Unknown XHTTP_MODE '{XHTTP_MODE}', falling back to 'auto'.")
+        XHTTP_MODE = "auto"
 
     # Parse multi-port configuration
     # Supported formats: "8888" (defaults to 0.0.0.0), "127.0.0.1:8888", "0.0.0.0:443,0.0.0.0:80"
-    inbound_ports = []
-    for p_item in PORT_ENV.split(","):
-        p_item = p_item.strip()
-        if ":" in p_item:
-            parts = p_item.split(":")
-            listen_ip = ":".join(parts[:-1])
-            port_num = int(parts[-1])
-            inbound_ports.append((listen_ip, port_num))
-        else:
-            inbound_ports.append(("0.0.0.0", int(p_item)))
+    inbound_ports = parse_listeners(PORT_ENV)
 
     # Cloudflare tunnel will point to the first port in the list
-    CLOUDFLARE_TARGET_IP = inbound_ports[0][0]
+    CLOUDFLARE_TARGET_IP = loopback_target(inbound_ports[0][0])
     CLOUDFLARE_TARGET_PORT = inbound_ports[0][1]
-    # If listening on all interfaces, force cloudflared to connect via localhost
-    if CLOUDFLARE_TARGET_IP == "0.0.0.0":
-        CLOUDFLARE_TARGET_IP = "127.0.0.1"
+    CLOUDFLARE_TARGET_URL = f"http://{url_host(CLOUDFLARE_TARGET_IP)}:{CLOUDFLARE_TARGET_PORT}"
 
     if RUN_MODE == "direct":
         direct_ip, direct_port = inbound_ports[0]
-        if direct_port != 80:
+        if direct_port != 80 and not tls_listeners:
             print(f"[!] DIRECT MODE: origin is listening on port {direct_port}. Cloudflare Flexible expects an HTTP origin on port 80.")
-        print("[!] DIRECT MODE: origin leg is plaintext HTTP transport (WS/xHTTP, no TLS). Set Cloudflare SSL/TLS to 'Flexible'.")
+        if tls_listeners:
+            print("[*] DIRECT MODE: TLS listener enabled. For Cloudflare Full (strict), point DNS to this origin and use a valid certificate on port 443.")
+        else:
+            print("[!] DIRECT MODE: origin leg is plaintext HTTP transport (WS/xHTTP, no TLS). Set Cloudflare SSL/TLS to 'Flexible'.")
 
     def send_webhook(data):
         if not WEBHOOK_URL:
@@ -242,11 +271,6 @@ def main():
     # =========================================
     # VLESS transport config generator
     # =========================================
-    def build_stream_settings(transport):
-        if transport == "xhttp":
-            return {"network": "xhttp", "security": "none", "xhttpSettings": {"path": WS_PATH, "mode": XHTTP_MODE}}
-        return {"network": "ws", "security": "none", "wsSettings": {"path": WS_PATH, "headers": {}}}
-
     # Dual transport uses separate loopback Xray inbounds and a TCP demux on
     # the public endpoint. WebSocket Upgrade goes to WS; plain HTTP goes xHTTP.
     WS_INTERNAL_OFFSET, XHTTP_INTERNAL_OFFSET = 20000, 30000
@@ -276,8 +300,10 @@ def main():
         threading.Thread(target=pipe_bytes, args=(client_conn, backend_conn), daemon=True).start()
         threading.Thread(target=pipe_bytes, args=(backend_conn, client_conn), daemon=True).start()
     def start_demux_server(listen_ip, listen_port, ws_port, xhttp_port):
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server = socket.socket(socket.AF_INET6 if ":" in listen_ip else socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if ":" in listen_ip:
+            server.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
         server.bind((listen_ip if listen_ip != "0.0.0.0" else "", listen_port)); server.listen(128)
         def accept_loop():
             while True:
@@ -287,21 +313,37 @@ def main():
         threading.Thread(target=accept_loop, daemon=True).start()
         print(f"[*] Dual transport demux: {listen_ip}:{listen_port} -> ws:{ws_port}, xhttp:{xhttp_port}")
         return server
-    def make_inbound(listen, port, transport):
-        return {"port": port, "listen": listen, "protocol": "vless", "sniffing": {"enabled": True, "destOverride": ["http", "tls"]}, "settings": {"clients": [{"id": UUID, "level": 0}], "decryption": "none"}, "streamSettings": build_stream_settings(transport)}
     def write_configs():
         inbounds, demux_servers = [], []
+        bindings = []
+        backends = {}
+        def add_inbound(ip, port, transport, cert=None):
+            bindings.append((ip, port))
+            inbounds.append(make_inbound(ip, port, transport, UUID, WS_PATH, XHTTP_MODE, cert))
         for ip, port in inbound_ports:
             if DUAL_TRANSPORT:
-                ws_port, xhttp_port = internal_port_for(port, "websocket"), internal_port_for(port, "xhttp")
-                inbounds.extend([make_inbound("127.0.0.1", ws_port, "websocket"), make_inbound("127.0.0.1", xhttp_port, "xhttp")])
+                # IPv4 and IPv6 listeners on the same port can share loopback backends.
+                if port not in backends:
+                    ws_port = internal_port_for(port, "websocket")
+                    xhttp_port = internal_port_for(port, "xhttp")
+                    add_inbound("127.0.0.1", ws_port, "websocket")
+                    add_inbound("127.0.0.1", xhttp_port, "xhttp")
+                    backends[port] = (ws_port, xhttp_port)
+                ws_port, xhttp_port = backends[port]
                 demux_servers.append((ip, port, ws_port, xhttp_port))
-            else: inbounds.append(make_inbound(ip, port, TRANSPORTS[0]))
-        xray_config = {"log": {"loglevel": "debug"}, "inbounds": inbounds, "outbounds": [{"protocol": "freedom", "settings": {"domainStrategy": "UseIPv4"}}]}
-        if ENABLE_WARP and wgcf_outbound: xray_config["outbounds"].insert(0, wgcf_outbound)
+                bindings.append((ip, port))
+            else:
+                add_inbound(ip, port, TRANSPORTS[0])
+        for ip, port in tls_listeners:
+            add_inbound(ip, port, TRANSPORTS[0], certificate)
+        # Reject wildcard collisions too, instead of letting Xray fail after launch.
+        validate_bindings(bindings)
+        xray_config = configure_routing({"log": {"loglevel": "debug"}, "inbounds": inbounds}, WARP_MODE, wgcf_outbound)
         with open("config.json", "w", encoding="utf-8") as config_file: json.dump(xray_config, config_file, indent=2)
         return demux_servers
     demux_intents = write_configs()
+    if RUN_MODE == "direct" and not local_public_ips():
+        print("[!] No global IP found by hostname lookup. This check may miss NICs/NAT; ensure DNS, NAT and firewall forward the origin ports correctly.")
     print("[*] Launching XRAY with configured transport inbounds...")
     xp = subprocess.Popen([XRAY_BIN, "run", "-c", "config.json"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
     demux_listeners = []
@@ -365,9 +407,9 @@ def main():
         # Quick Tunnels only need an outbound TCP connection and HTTP/2 avoids
         # waiting for QUIC to fail on hosts or networks that block UDP.
         tunnel_protocol = "http2" if RUN_MODE == "quick_tunnel" else "auto"
-        print(f"[*] Launching Cloudflare Tunnel ({tunnel_protocol}) pointing to http://{CLOUDFLARE_TARGET_IP}:{CLOUDFLARE_TARGET_PORT}...")
+        print(f"[*] Launching Cloudflare Tunnel ({tunnel_protocol}) pointing to {CLOUDFLARE_TARGET_URL}...")
         return subprocess.Popen(
-            [CLF_BIN, "tunnel", "--protocol", tunnel_protocol, "--url", f"http://{CLOUDFLARE_TARGET_IP}:{CLOUDFLARE_TARGET_PORT}"],
+            [CLF_BIN, "tunnel", "--protocol", tunnel_protocol, "--url", CLOUDFLARE_TARGET_URL],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -381,10 +423,11 @@ def main():
     published_link_host = None
 
     try:
-        logger = RealtimeLogger(port=9999, password=None)
+        logger = RealtimeLogger(port=9999, password=PASSWORD, host=LOGGER_HOST)
         logger_url = logger.start()
         print(f"[*] Logger Web UI is running at: {logger_url}")
-    except Exception:
+    except OSError as error:
+        print(f"[!] Logger could not start: {error}")
         logger = None
 
     def logger_push(message, source):
@@ -438,61 +481,22 @@ def main():
             # print(e)
             pass
 
-    # Friendly name map for known FAKE_SNI hostnames
-    FRIENDLY_NAME_MAP = {
-        "api24-normal-alisg.tiktokv.com": "FreeTiktok",
-        "172.67.168.158": "FreeVina Ko Nen",
-    }
-
-    def flag_emoji(cc):
-        """Convert 2-letter ISO country code to flag emoji. Returns None if invalid."""
-        cc = (cc or "").strip().upper()
-        if len(cc) != 2 or not all("A" <= c <= "Z" for c in cc):
-            return None
-        return "".join(chr(0x1F1E6 + ord(c) - ord("A")) for c in cc)
-
     def print_vless_links(tunnel_host, uuid_str, fake_sni, ws_path):
-        import urllib.parse
-        encoded_path = urllib.parse.quote(ws_path, safe='')
         tunnel_host_info = WS_HOST if WS_HOST and WS_HOST != "trycloudflare.com" else tunnel_host
-        payloads = []
-        country_flag = flag_emoji(COUNTRY_CODE)
-        country_prefix = f"[{country_flag}] {COUNTRY_CODE} | " if country_flag else ""
-
-        def add_link(sni, transport, label):
-            params = f"type={'ws' if transport == 'websocket' else 'xhttp'}&encryption=none&security="
-            xhttp_params = f"&mode={XHTTP_MODE}" if transport == "xhttp" else ""
-            link_name = urllib.parse.quote(f"{label} {'WS' if transport == 'websocket' else 'XHTTP'}", safe='')
-            if PORT_MODE in ("443", "both"):
-                tls_params = f"tls&path={encoded_path}&host={tunnel_host_info}&sni={tunnel_host_info}{xhttp_params}"
-                if transport == "xhttp": tls_params += "&alpn=h3%2Ch2"
-                payloads.append(f"vless://{uuid_str}@{sni}:443?{params}{tls_params}#{link_name}")
-            if PORT_MODE in ("80", "both") and RUN_MODE != "direct":
-                payloads.append(f"vless://{uuid_str}@{sni}:80?{params}&path={encoded_path}&host={tunnel_host_info}{xhttp_params}#{link_name}")
-
-        for sni_entry in fake_sni.split(","):
-            sni_entry = sni_entry.strip()
-            if not sni_entry: continue
-            sni, separator, remark = sni_entry.partition("#")
-            sni, remark = sni.strip(), remark.strip()
-            remark = {"Free Tiktok": "FreeTiktok", "Free Vina Ko Nen": "FreeVina Ko Nen"}.get(remark, remark)
-            base_label = remark or FRIENDLY_NAME_MAP.get(sni) or sni
-            label = f"{country_prefix}{base_label}"
-            for transport in TRANSPORTS:
-                add_link(sni, transport, label)
+        payloads = build_links(uuid_str, fake_sni, TRANSPORTS, tunnel_host_info, ws_path,
+                               PORT_MODE, XHTTP_MODE, DNSECH, COUNTRY_CODE, RUN_MODE)
 
         print("\n" + "=" * 70)
-        print(" DIRECT MODE (Cloudflare proxied DNS -> origin :80)" if RUN_MODE == "direct" else " CONNECTED TO CLOUDFLARE TUNNEL")
+        print(" DIRECT MODE (Cloudflare proxied DNS -> configured origin)" if RUN_MODE == "direct" else " CONNECTED TO CLOUDFLARE TUNNEL")
         print("=" * 70 + "\n")
-        with open("frp_info.config", "w", encoding="utf-8") as links_file:
-            links_file.write("\n".join(payloads) + ("\n" if payloads else ""))
+        write_subscription(payloads, OUTPUT_FORMAT)
         print(" VLESS LINKS (server continues running)")
         print("-" * 70)
         for payload in payloads:
             print(payload)
         print("-" * 70)
-        print("[OK] Links were also saved to: frp_info.config")
-        print("[i] To view them again from another Termux session: cat ~/vless/frp_info.config")
+        print("[OK] Saved frp_info.config and frp_info.base64 (Base64 subscription).")
+        print("[i] View links: python runtime_config.py --show-links frp_info.config")
 
         frp_info = {"payloads": payloads, "ip": get_public_url(), "wshost": tunnel_host, "wspath": ws_path, "transport": TRANSPORT, "xhttp_mode": XHTTP_MODE if "xhttp" in TRANSPORTS else None, "start_time": START_TIME}
         send_webhook(frp_info)
@@ -539,6 +543,10 @@ def main():
     except KeyboardInterrupt:
         print("\n[*] Stopping services...")
     finally:
+        for listener in demux_listeners:
+            listener.close()
+        if logger:
+            logger.stop()
         try: xp.terminate()
         except: pass
         if clp is not None:

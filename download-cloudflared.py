@@ -1,73 +1,74 @@
 import os
 import platform
-import requests
 import shutil
+import tarfile
+import requests
 
-CLOUDFLARED_VERSION = "2026.3.0" 
+CLOUDFLARED_VERSION = "2026.8.2"
 BASE_URL = f"https://github.com/cloudflare/cloudflared/releases/download/{CLOUDFLARED_VERSION}"
 
+
+def is_termux():
+    return platform.system().lower() == "android" or bool(os.getenv("TERMUX_VERSION")) or "com.termux" in os.getenv("PREFIX", "")
+
+
 def get_download_info():
-    sys = platform.system().lower()
-    arch = platform.machine().lower()
+    system, arch = platform.system().lower(), platform.machine().lower()
+    suffixes = {
+        "windows": {"amd64": "amd64.exe", "x86_64": "amd64.exe", "x86": "386.exe", "i686": "386.exe"},
+        "linux": {"amd64": "amd64", "x86_64": "amd64", "arm64": "arm64", "aarch64": "arm64", "armv7l": "arm", "arm": "arm", "i686": "386", "i386": "386"},
+        "darwin": {"amd64": "amd64.tgz", "x86_64": "amd64.tgz", "arm64": "arm64.tgz", "aarch64": "arm64.tgz"},
+    }
+    suffix = suffixes.get(system, {}).get(arch)
+    if not suffix:
+        raise RuntimeError(f"Unsupported cloudflared platform: {system} {arch}")
+    return f"cloudflared-{system}-{suffix}", "cloudflared.exe" if system == "windows" else "cloudflared"
 
-    if sys == "windows":
-        if arch in ["amd64", "x86_64"]:
-            return "cloudflared-windows-amd64.exe", "cloudflared.exe"
-        return "cloudflared-windows-386.exe", "cloudflared.exe"
-
-    if sys == "linux":
-        if arch in ["aarch64", "arm64"]:
-            return "cloudflared-linux-arm64", "cloudflared"
-        if arch in ["armv7l", "arm"]:
-            return "cloudflared-linux-arm", "cloudflared"
-        if arch in ["amd64", "x86_64"]:
-            return "cloudflared-linux-amd64", "cloudflared"
-        return "cloudflared-linux-386", "cloudflared"
-
-    if sys == "darwin": # macOS
-        return "cloudflared-darwin-amd64.tgz", "cloudflared"
-
-    if sys == "android":
-        # Termux cannot run cloudflared directly, suggest using package manager
-        print("Please install cloudflared by: pkg install cloudflared -y")
-        print("Or using ubuntu proot distro in Termux")
-
-    raise Exception(f"OS {sys} {arch} not supported.")
 
 def download_file(url, filename):
-    print(f"Đang tải: {url}")
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        with open(filename, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+    print(f"[*] Downloading: {url}")
+    with requests.get(url, stream=True, timeout=(15, 120)) as response:
+        response.raise_for_status()
+        with open(filename, "wb") as output:
+            for chunk in response.iter_content(chunk_size=65536):
+                output.write(chunk)
+
 
 def install_cloudflared():
-    remote_file, local_name = get_download_info()
-    url = f"{BASE_URL}/{remote_file}"
-    
-    print(f"Hệ thống: {platform.system()} ({platform.machine()})")
+    if is_termux():
+        existing = shutil.which("cloudflared")
+        if not existing:
+            raise RuntimeError("Termux: run pkg install cloudflared -y, then restart")
+        destination = os.path.abspath("cloudflared")
+        if os.path.realpath(existing) != os.path.realpath(destination):
+            if os.path.lexists(destination):
+                os.remove(destination)
+            os.symlink(existing, destination)
+        return
+    asset, destination = get_download_info()
+    temporary, archive = destination + ".download", "cloudflared_temp.archive"
+    try:
+        if asset.endswith(".tgz"):
+            download_file(f"{BASE_URL}/{asset}", archive)
+            with tarfile.open(archive, "r:gz") as package:
+                member = next((m for m in package.getmembers() if m.isfile() and os.path.basename(m.name) == "cloudflared"), None)
+                if member is None:
+                    raise RuntimeError("cloudflared binary missing from archive")
+                with package.extractfile(member) as source, open(temporary, "wb") as output:
+                    shutil.copyfileobj(source, output)
+        else:
+            download_file(f"{BASE_URL}/{asset}", temporary)
+        if not os.path.getsize(temporary):
+            raise RuntimeError("Downloaded cloudflared binary is empty")
+        if os.name != "nt":
+            os.chmod(temporary, 0o755)
+        os.replace(temporary, destination)
+    finally:
+        for filename in (temporary, archive):
+            if os.path.exists(filename):
+                os.remove(filename)
+    print(f"[OK] Installed cloudflared: {os.path.abspath(destination)}")
 
-    # Cloudflared thường tải về là file chạy luôn (trừ macOS/FreeBSD là file nén)
-    if remote_file.endswith(".exe") or "linux" in remote_file:
-        download_file(url, local_name)
-    else:
-        # Xử lý nếu là file nén (ví dụ .tgz trên macOS)
-        temp_archive = "cloudflared_temp.archive"
-        download_file(url, temp_archive)
-        print("Đang giải nén...")
-        # Thêm logic giải nén nếu cần ở đây (shutil.unpack_archive)
-        # Tạm thời với Linux/Windows thì cloudflared là binary trực tiếp
-        os.rename(temp_archive, local_name)
-
-    # Cấp quyền thực thi cho Linux/macOS
-    if platform.system().lower() != "windows":
-        os.chmod(local_name, 0o755)
-
-    print(f"--- Đã cài đặt xong: {os.path.abspath(local_name)} ---")
 
 if __name__ == "__main__":
-    try:
-        install_cloudflared()
-    except Exception as e:
-        print(f"Lỗi: {e}")
+    install_cloudflared()

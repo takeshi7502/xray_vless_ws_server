@@ -2,6 +2,8 @@ import json
 import base64
 import time
 import threading
+import hmac
+import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -38,16 +40,30 @@ LOGGING_HTML_TEMPLATE = """
             const type = (item.type || "INFO").toUpperCase();
             if (type.includes("ERROR")) typeClass = "type-error";
             if (type.includes("SUCCESS")) typeClass = "type-success";
-            let msg = typeof item.text === "object" ? `<pre>${JSON.stringify(item.text, null, 2)}</pre>` : item.text;
-            return `<div class="log-entry"><span class="timestamp">[${item.time}]</span><span class="${typeClass}">[${type}]</span> ${msg}</div>`;
+            const entry = document.createElement("div");
+            entry.className = "log-entry";
+            const timestamp = document.createElement("span");
+            timestamp.className = "timestamp";
+            timestamp.textContent = `[${item.time}]`;
+            const source = document.createElement("span");
+            source.className = typeClass;
+            source.textContent = `[${type}] `;
+            const message = document.createElement(typeof item.text === "object" ? "pre" : "span");
+            message.textContent = typeof item.text === "object" ? JSON.stringify(item.text, null, 2) : item.text;
+            entry.append(timestamp, source, message);
+            return entry;
         }
         async function fetchLogs() {
             try {
-                const res = await fetch(`/logs?last_id=${lastLogId}`);
+                const query = new URLSearchParams(window.location.search);
+                query.set("last_id", lastLogId);
+                const res = await fetch(`/logs?${query}`, {cache: "no-store"});
+                if (!res.ok) return;
                 const data = await res.json();
                 if (data.new_logs.length > 0) {
                     if (logContainer.innerText.includes("Đang chờ")) logContainer.innerHTML = "";
-                    logContainer.insertAdjacentHTML('beforeend', data.new_logs.map(formatLog).join(""));
+                    logContainer.append(...data.new_logs.map(formatLog));
+                    while (logContainer.children.length > 500) logContainer.firstElementChild.remove();
                     lastLogId = data.last_id;
                     logContainer.scrollTop = logContainer.scrollHeight;
                 }
@@ -60,7 +76,10 @@ LOGGING_HTML_TEMPLATE = """
 """
 
 class RealtimeLogger:
-    def __init__(self, port=8080, password="admin", max_logs=500):
+    def __init__(self, port=8080, password=None, max_logs=500, host="127.0.0.1"):
+        if host not in ("127.0.0.1", "::1", "localhost") and not password:
+            raise ValueError("A non-local logger requires a password")
+        self.host = host
         self.port = port
         self.password = password
         self.max_logs = max_logs
@@ -71,6 +90,8 @@ class RealtimeLogger:
         self._lock = threading.Lock()
 
     def set_password(self, password):
+        if self.host not in ("127.0.0.1", "::1", "localhost") and not password:
+            raise ValueError("A non-local logger requires a password")
         self.password = password
 
     def set_port(self, port):
@@ -97,16 +118,27 @@ class RealtimeLogger:
         logger_ref = self
 
         class WebHandler(BaseHTTPRequestHandler):
+            def end_headers(self):
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Referrer-Policy", "no-referrer")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                super().end_headers()
+
             def log_message(self, format, *args):
                 return  # Tắt log mặc định của server vào console để đỡ rác
 
             def check_auth(self):
                 if not logger_ref.password: return True
+                supplied = parse_qs(urlparse(self.path).query).get("password", [""])[0]
+                if hmac.compare_digest(supplied.encode(), logger_ref.password.encode()):
+                    return True
                 auth = self.headers.get("Authorization")
                 if not auth: return False
                 try:
-                    decoded = base64.b64decode(auth.split(" ")[1]).decode()
-                    return decoded.split(":", 1)[1] == logger_ref.password
+                    scheme, value = auth.split(" ", 1)
+                    if scheme.lower() != "basic": return False
+                    decoded = base64.b64decode(value, validate=True).decode()
+                    return hmac.compare_digest(decoded.split(":", 1)[1].encode(), logger_ref.password.encode())
                 except: return False
 
             def do_GET(self):
@@ -126,7 +158,11 @@ class RealtimeLogger:
                 
                 elif parsed.path == "/logs":
                     query = parse_qs(parsed.query)
-                    last_id = int(query.get("last_id", [0])[0])
+                    try:
+                        last_id = int(query.get("last_id", [0])[0])
+                    except ValueError:
+                        self.send_error(400, "Invalid last_id")
+                        return
                     
                     with logger_ref._lock:
                         new_logs = [l for l in logger_ref.logs if l["id"] > last_id]
@@ -136,21 +172,26 @@ class RealtimeLogger:
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
                     self.wfile.write(json.dumps(resp).encode())
+                else:
+                    self.send_error(404)
         
         return WebHandler
 
     def start(self):
         """Khởi chạy server trong một thread riêng"""
         if self.server:
-            return f"http://localhost:{self.port}"
+            return f"http://{'[' + self.host + ']' if ':' in self.host else self.host}:{self.port}"
 
-        def run_server():
-            self.server = ThreadingHTTPServer(("0.0.0.0", self.port), self._create_handler())
-            self.server.serve_forever()
-
-        self.server_thread = threading.Thread(target=run_server, daemon=True)
+        server_class = ThreadingHTTPServer
+        if ":" in self.host:
+            class IPv6Server(ThreadingHTTPServer):
+                address_family = socket.AF_INET6
+            server_class = IPv6Server
+        self.server = server_class((self.host, self.port), self._create_handler())
+        self.port = self.server.server_port
+        self.server_thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.server_thread.start()
-        return f"http://localhost:{self.port}"
+        return f"http://{'[' + self.host + ']' if ':' in self.host else self.host}:{self.port}"
 
     def stop(self):
         """Dừng server"""

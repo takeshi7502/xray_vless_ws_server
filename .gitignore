@@ -4,10 +4,20 @@
 /config.yml
 /frpc.toml
 /frp_info.config
+/frp_info.base64
+/frp_info.config.tmp
+/frp_info.base64.tmp
 /frp_info.json
 /wgcf.json
 /wgcf.xray.json
 *.log
+
+# TLS listener credentials must never be committed.
+/tls/
+*.key
+*.pem
+*.p12
+*.pfx
 
 # Downloaded runtimes and archives
 /xray
@@ -19,8 +29,12 @@
 /wgcf-cli.tar.zstd
 /xray_bin/
 /wgcf_bin/
+*.download
 
 # Python and editor state
+# Local test suites are kept outside the published source.
+/test/
+/tests/
 __pycache__/
 *.py[cod]
 /.venv/

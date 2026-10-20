@@ -702,6 +702,22 @@ footer a { color: var(--md-on-surface-variant); }
         </div>
     </section>
 
+    <section>
+        <h3 data-i18n="wireshark_title">Wireshark Packet Inspection</h3>
+        <p data-i18n="wireshark_note">QUIC Initial secrets are publicly derivable: HTTP/3 alone does not hide ClientHello or SNI. ECH needs compatible server DNS records and a supported client. These captures do not guarantee unmetered data or a speed advantage.</p>
+        <div class="speedtest-gallery">
+            <figure>
+                <img src="images/vless_websocket_wireshark.jpg" alt="WebSocket over TCP and TLS packet capture" loading="lazy">
+                <figcaption>VLESS + WebSocket / TCP / TLS</figcaption>
+            </figure>
+            <figure>
+                <img src="images/vless_xhttp_wireshark.jpg" alt="xHTTP over HTTP/3 and QUIC packet capture" loading="lazy">
+                <figcaption>VLESS + xHTTP / HTTP/3 / QUIC</figcaption>
+            </figure>
+        </div>
+        <p><a href="https://github.com/takeshi7502/xray_vless_ws_server/blob/main/docs/UPSTREAM_INTEGRATION.md" data-i18n="upstream_guide">Upstream integration and new settings: ECH, WARP ip6only, TLS, IPv6 and address presets.</a></p>
+    </section>
+
     <!-- 6. FEATURES -->
     <section class="card" id="features">
         <div class="section-head">
@@ -752,13 +768,14 @@ python main.py</pre>
             <div class="code-label"><span>.env</span>
                 <button class="copy-btn" onclick="copyCode(this, 'code-env')" data-i18n="btn_copy">Copy</button>
             </div>
-            <pre class="code" id="code-env">PORT=127.0.0.1:8888,0.0.0.0:443,0.0.0.0:80
+            <pre class="code" id="code-env">RUN_MODE=quick_tunnel
+PORT=127.0.0.1:8888
 XRAY_UUID=5ccad305-e243-4bb2-abf0-1e37189ce4e8
-FAKE_SNI=api24-normal-alisg.tiktokv.com
+FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone
 WS_PATH=/vless
 WS_HOST=v2ray.yourdomain.com
-TRANSPORT=websocket,xhttp
-XHTTP_MODE=packet-up
+TRANSPORT=websocket
+XHTTP_MODE=auto
 TUNNEL_TOKEN=eyJhSWQiOiI...
 ENABLE_WARP=false
 WEBHOOK_URL=</pre>
@@ -771,7 +788,7 @@ WEBHOOK_URL=</pre>
             <div class="env-row"><span class="env-key">WS_PATH</span><span class="env-desc" data-i18n="env_wspath">WebSocket / xHTTP path endpoint.</span></div>
             <div class="env-row"><span class="env-key">WS_HOST</span><span class="env-desc" data-i18n="env_wshost">Custom domain for your Named Tunnel, or <code>trycloudflare.com</code> for quick tunnels.</span></div>
             <div class="env-row"><span class="env-key">TRANSPORT</span><span class="env-desc" data-i18n="env_transport"><code>websocket</code>, <code>xhttp</code>, or both at once. Dual mode demuxes transparently over the same port/path.</span></div>
-            <div class="env-row"><span class="env-key">XHTTP_MODE</span><span class="env-desc" data-i18n="env_xhttpmode"><code>packet-up</code> (recommended), <code>stream-up</code>, or <code>stream-one</code>. Only used with xHTTP.</span></div>
+            <div class="env-row"><span class="env-key">XHTTP_MODE</span><span class="env-desc" data-i18n="env_xhttpmode"><code>auto</code> (default), <code>packet-up</code>, <code>stream-up</code>, or <code>stream-one</code>. Only used with xHTTP.</span></div>
             <div class="env-row"><span class="env-key">TUNNEL_TOKEN</span><span class="env-desc" data-i18n="env_token">Cloudflare Tunnel Token for a persistent custom domain. Leave blank for free temporary URLs.</span></div>
             <div class="env-row"><span class="env-key">ENABLE_WARP</span><span class="env-desc" data-i18n="env_warp">Set <code>true</code> to route Xray outbound through Cloudflare WARP.</span></div>
             <div class="env-row"><span class="env-key">WEBHOOK_URL</span><span class="env-desc" data-i18n="env_webhook">Optional endpoint to receive connection payloads on tunnel init.</span></div>
@@ -853,6 +870,9 @@ en: {
     speedtest_title: "Real-World Speedtest",
     speedtest_ws_caption: "VLESS + WebSocket + TLS — 166 Mbps down / 41.3 Mbps up",
     speedtest_xhttp_caption: "VLESS + xHTTP + TLS + ALPN H3 — 183 Mbps down / 188 Mbps up",
+    wireshark_title: "Wireshark Packet Inspection",
+    wireshark_note: "QUIC Initial secrets are publicly derivable: HTTP/3 alone does not hide ClientHello or SNI. ECH needs compatible server DNS records and a supported client. These captures do not guarantee unmetered data or a speed advantage.",
+    upstream_guide: "Upstream integration and new settings: ECH, WARP ip6only, TLS, IPv6 and address presets.",
     features_title: "Script Features",
     feat1_h: "Dynamic Environment Orchestration", feat1_b: "Automated verification and generation of localized <code>.env</code> dependencies.",
     feat2_h: "Quick & Named Tunnels", feat2_b: "Auto-detects whether to launch an ephemeral <code>trycloudflare.com</code> tunnel or a persistent custom domain.",
@@ -868,9 +888,9 @@ en: {
     env_wspath: "WebSocket / xHTTP path endpoint.",
     env_wshost: "Custom domain for your Named Tunnel, or <code>trycloudflare.com</code> for quick tunnels.",
     env_transport: "<code>websocket</code>, <code>xhttp</code>, or both at once. Dual mode demuxes transparently over the same port/path.",
-    env_xhttpmode: "<code>packet-up</code> (recommended), <code>stream-up</code>, or <code>stream-one</code>. Only used with xHTTP.",
+    env_xhttpmode: "<code>auto</code> (default), <code>packet-up</code>, <code>stream-up</code>, or <code>stream-one</code>. Only used with xHTTP.",
     env_token: "Cloudflare Tunnel Token for a persistent custom domain. Leave blank for free temporary URLs.",
-    env_warp: "Set <code>true</code> to route Xray outbound through Cloudflare WARP.",
+    env_warp: "<code>false</code>: disabled; <code>true</code>: all traffic via WARP; <code>ip6only</code>: IPv6 via WARP, IPv4 direct.",
     env_webhook: "Optional endpoint to receive connection payloads on tunnel init.",
     reflection_title: "Engineering Reflection",
     reflection_p1: "This isn't a system bug — it's an elegant, creative exploitation of cloud infrastructure. Carrier inspection only evaluates the outer perimeter of a packet, while global CDNs process the inner intent.",
@@ -931,6 +951,9 @@ vi: {
     speedtest_title: "Speedtest Thực Tế",
     speedtest_ws_caption: "VLESS + WebSocket + TLS — 166 Mbps tải xuống / 41.3 Mbps tải lên",
     speedtest_xhttp_caption: "VLESS + xHTTP + TLS + ALPN H3 — 183 Mbps tải xuống / 188 Mbps tải lên",
+    wireshark_title: "Kiểm Tra Gói Tin Bằng Wireshark",
+    wireshark_note: "Khóa QUIC Initial có thể suy ra công khai: HTTP/3 tự nó không giấu ClientHello hay SNI. ECH cần DNS của máy chủ và ứng dụng cùng hỗ trợ. Các ảnh không bảo đảm miễn data hay tốc độ tốt hơn.",
+    upstream_guide: "Tích hợp upstream và cấu hình mới: ECH, WARP ip6only, TLS, IPv6 và preset address.",
     features_title: "Các Tính Năng Của Script",
     feat1_h: "Điều Phối Môi Trường Tự Động", feat1_b: "Tự động kiểm tra và tạo các phụ thuộc <code>.env</code> cục bộ.",
     feat2_h: "Tunnel Tạm Thời & Cố Định", feat2_b: "Tự động nhận diện để khởi chạy tunnel <code>trycloudflare.com</code> tạm thời hoặc domain riêng cố định.",
@@ -946,9 +969,9 @@ vi: {
     env_wspath: "Đường dẫn endpoint WebSocket / xHTTP.",
     env_wshost: "Domain riêng cho Named Tunnel, hoặc <code>trycloudflare.com</code> nếu dùng tunnel tạm thời.",
     env_transport: "<code>websocket</code>, <code>xhttp</code>, hoặc cả hai cùng lúc. Chế độ song song tự động phân luồng trên cùng port/path.",
-    env_xhttpmode: "<code>packet-up</code> (khuyên dùng), <code>stream-up</code>, hoặc <code>stream-one</code>. Chỉ dùng khi có xHTTP.",
+    env_xhttpmode: "<code>auto</code> (mặc định), <code>packet-up</code>, <code>stream-up</code>, hoặc <code>stream-one</code>. Chỉ dùng khi có xHTTP.",
     env_token: "Token Cloudflare Tunnel để dùng domain riêng cố định. Để trống nếu dùng URL tạm thời miễn phí.",
-    env_warp: "Đặt <code>true</code> để định tuyến Xray outbound qua Cloudflare WARP.",
+    env_warp: "<code>false</code>: tắt; <code>true</code>: tất cả qua WARP; <code>ip6only</code>: IPv6 qua WARP, IPv4 đi trực tiếp.",
     env_webhook: "Endpoint tùy chọn để nhận payload kết nối khi khởi tạo tunnel.",
     reflection_title: "Chiêm Nghiệm Kỹ Thuật",
     reflection_p1: "Đây không phải một lỗi hệ thống — mà là một sự khai thác thông minh, sáng tạo đối với hạ tầng đám mây. Hệ thống kiểm tra của nhà mạng chỉ đánh giá lớp vỏ bên ngoài của gói tin, trong khi CDN toàn cầu xử lý mục đích cốt lõi bên trong.",

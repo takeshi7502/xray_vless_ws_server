@@ -10,18 +10,28 @@ $Defaults = [ordered]@{
     RUN_MODE = "quick_tunnel"
     PORT = "127.0.0.1:8888"
     XRAY_UUID = ""
-    FAKE_SNI = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
+    FAKE_SNI = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone"
     WS_PATH = "/vless"
     WS_HOST = "trycloudflare.com"
     TRANSPORT = "websocket,xhttp"
-    XHTTP_MODE = "packet-up"
+    XHTTP_MODE = "auto"
     ENABLE_WARP = "false"
     WEBHOOK_URL = ""
     TUNNEL_TOKEN = ""
     COUNTRY_CODE = ""
     CUSTOM_DOMAIN = ""
     PORT_MODE = "443"
+    DNSECH = ""
+    TLS_PORT = ""
+    TLS_PEM = ""
+    TLS_KEY = ""
+    LOGGER_HOST = "127.0.0.1"
+    PASSWORD = ""
+    DEBUG_MODE = "false"
+    FRP_INFO_FORMAT = "plain"
 }
+$LegacyAddresses = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
+$NewAddresses = "bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone"
 $EnvKeys = @($Defaults.Keys)
 $EnvPath = Join-Path $ProjectRoot ".env"
 $script:Python = $null
@@ -74,7 +84,7 @@ function Read-EnvFile {
 }
 
 function Write-EnvFile($Settings) {
-    $Settings["WS_PATH"] = "/vless"
+    if ([string]::IsNullOrWhiteSpace($Settings["WS_PATH"])) { $Settings["WS_PATH"] = "/vless" }
     if ([string]::IsNullOrWhiteSpace($Settings["XRAY_UUID"])) {
         $Settings["XRAY_UUID"] = [guid]::NewGuid().ToString()
     }
@@ -93,21 +103,33 @@ function Select-FakeSni($Settings) {
         "api24-normal-alisg.tiktokv.com#Free Tiktok" { "1" }
         "172.67.168.158#FreeVina Ko Nen" { "2" }
         "172.67.168.158#Free Vina Ko Nen" { "2" }
-        $Defaults["FAKE_SNI"] { "3" }
+        $LegacyAddresses { "3" }
+        "vega-prime.huskydg.dpdns.org#Free Mobifone" { "4" }
+        "alpha-rigel-core.huskydg.dpdns.org#Free VNPT" { "5" }
+        $NewAddresses { "6" }
+        $Defaults["FAKE_SNI"] { "7" }
         "api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen" { "3" }
-        "" { "3" }
+        "" { "7" }
         default { "tuy chinh" }
     }
     Write-Info "Chon domain hien trong ten link."
     Write-Host "   1. FreeTiktok  (api24-normal-alisg.tiktokv.com)"
     Write-Host "   2. FreeVina Ko Nen  (172.67.168.158)"
-    Write-Host "   3. Ca hai (mac dinh)"
+    Write-Host "   3. Hai address cu"
+    Write-Host "   4. Free Mobifone (vega-prime.huskydg.dpdns.org)"
+    Write-Host "   5. Free VNPT (alpha-rigel-core.huskydg.dpdns.org)"
+    Write-Host "   6. Tat ca address moi cua tac gia (TikTok + VNPT + Mobifone)"
+    Write-Host "   7. Ca cu va moi (mac dinh cho cai moi)"
     Write-Host "   Hoac nhap gia tri tuy chinh."
-    $choice = Read-Value " Chon [1/2/3/tuy chinh]" $default
+    $choice = Read-Value " Chon [1-7/tuy chinh]" $default
     switch ($choice) {
         "1" { $Settings["FAKE_SNI"] = "api24-normal-alisg.tiktokv.com#FreeTiktok" }
         "2" { $Settings["FAKE_SNI"] = "172.67.168.158#FreeVina Ko Nen" }
-        "3" { $Settings["FAKE_SNI"] = $Defaults["FAKE_SNI"] }
+        "3" { $Settings["FAKE_SNI"] = $LegacyAddresses }
+        "4" { $Settings["FAKE_SNI"] = "vega-prime.huskydg.dpdns.org#Free Mobifone" }
+        "5" { $Settings["FAKE_SNI"] = "alpha-rigel-core.huskydg.dpdns.org#Free VNPT" }
+        "6" { $Settings["FAKE_SNI"] = $NewAddresses }
+        "7" { $Settings["FAKE_SNI"] = $Defaults["FAKE_SNI"] }
         "tuy chinh" { }
         default { $Settings["FAKE_SNI"] = $choice.Trim() }
     }
@@ -136,19 +158,22 @@ function Select-Transport($Settings) {
 
     if ($Settings["TRANSPORT"] -like "*xhttp*") {
         $modeDefault = switch ($Settings["XHTTP_MODE"]) {
+            "packet-up" { "1" }
             "stream-up" { "2" }
             "stream-one" { "3" }
-            default { "1" }
+            default { "4" }
         }
         Write-Host "   xHTTP mode:"
         Write-Host "   1. packet-up"
         Write-Host "   2. stream-up"
         Write-Host "   3. stream-one"
-        $mode = Read-Value " Chon xHTTP mode [1/2/3]" $modeDefault
+        Write-Host "   4. auto (mac dinh moi)"
+        $mode = Read-Value " Chon xHTTP mode [1/2/3/4]" $modeDefault
         switch ($mode) {
             "1" { $Settings["XHTTP_MODE"] = "packet-up" }
             "2" { $Settings["XHTTP_MODE"] = "stream-up" }
             "3" { $Settings["XHTTP_MODE"] = "stream-one" }
+            "4" { $Settings["XHTTP_MODE"] = "auto" }
             default { Write-Warn "Mode khong hop le, giu lai $($Settings['XHTTP_MODE'])." }
         }
     }
@@ -178,6 +203,33 @@ function Configure-Country($Settings) {
     $country = ([regex]::Replace($country.ToUpperInvariant(), "[^A-Z]", ""))
     $Settings["COUNTRY_CODE"] = if ($country.Length -ge 2) { $country.Substring(0, 2) } else { $country }
     if ($Settings["COUNTRY_CODE"]) { Write-Ok "Country: $($Settings['COUNTRY_CODE'])" }
+}
+
+function Configure-Advanced {
+    if (-not (Test-Path $EnvPath)) { throw "Hay setup mot che do truoc." }
+    $settings = Read-EnvFile
+    Write-Header "Cau hinh nang cao"
+    Write-Info "Enter giu gia tri; nhap - de xoa gia tri tuy chon. Khoi dong lai sau khi luu."
+    $warp = Read-Value " WARP: false / true / ip6only" $settings["ENABLE_WARP"]
+    if ($warp -notin @("false", "true", "ip6only")) { throw "WARP khong hop le." }
+    $settings["ENABLE_WARP"] = $warp
+    foreach ($key in @("DNSECH", "TLS_PORT", "TLS_PEM", "TLS_KEY", "LOGGER_HOST")) {
+        $value = Read-Value " $key" $settings[$key]
+        $settings[$key] = if ($value -eq "-") { "" } else { $value }
+    }
+    Write-Warn "TLS_PORT can cert/key PEM co san; TLS chi phuc vu transport dau tien."
+    $secret = Read-Host " Logger password (Enter giu cu, - de xoa)" -AsSecureString
+    $credential = New-Object System.Management.Automation.PSCredential("logger", $secret)
+    $value = $credential.GetNetworkCredential().Password
+    if ($value -eq "-") { $settings["PASSWORD"] = "" }
+    elseif ($value) { $settings["PASSWORD"] = $value }
+    $debugValue = Read-Value " DEBUG_MODE: false / true" $settings["DEBUG_MODE"]
+    if ($debugValue -notin @("false", "true")) { throw "DEBUG_MODE khong hop le." }
+    $settings["DEBUG_MODE"] = $debugValue
+    $format = Read-Value " FRP_INFO_FORMAT: plain / base64" $settings["FRP_INFO_FORMAT"]
+    if ($format -notin @("plain", "base64")) { throw "Format khong hop le." }
+    $settings["FRP_INFO_FORMAT"] = $format
+    Write-EnvFile $settings
 }
 
 function Ensure-Python {
@@ -232,7 +284,7 @@ function Configure-QuickTunnel {
     Select-FakeSni $settings
 
     Write-Step "2/4" "Port link VLESS"
-    $settings["WS_PATH"] = "/vless"
+    if (-not $settings["WS_PATH"]) { $settings["WS_PATH"] = "/vless" }
     Write-Ok "Transport: WebSocket"
     Select-PortMode $settings
 
@@ -263,7 +315,7 @@ function Configure-NamedTunnel {
     Select-FakeSni $settings
 
     Write-Step "3/6" "Diem cuoi transport"
-    $settings["WS_PATH"] = "/vless"
+    if (-not $settings["WS_PATH"]) { $settings["WS_PATH"] = "/vless" }
     Select-Transport $settings
 
     Write-Step "4/6" "Port link VLESS"
@@ -295,7 +347,7 @@ function Configure-Direct {
     Select-FakeSni $settings
 
     Write-Step "3/6" "Diem cuoi transport"
-    $settings["WS_PATH"] = "/vless"
+    if (-not $settings["WS_PATH"]) { $settings["WS_PATH"] = "/vless" }
     Select-Transport $settings
 
     Write-Step "4/6" "Port link VLESS"
@@ -309,7 +361,7 @@ function Configure-Direct {
 }
 
 function Remove-RuntimeFiles {
-    $files = @("xray.exe", "cloudflared.exe", "wgcf-cli.exe", ".env", "config.json", "frp_info.config", "frp_info.json", "wgcf.json", "wgcf.xray.json")
+    $files = @("xray.exe", "cloudflared.exe", "wgcf-cli.exe", ".env", "config.json", "frp_info.config", "frp_info.base64", "frp_info.json", "wgcf.json", "wgcf.xray.json")
     foreach ($file in $files) {
         Remove-Item -LiteralPath (Join-Path $ProjectRoot $file) -Force -ErrorAction SilentlyContinue
     }
@@ -334,7 +386,7 @@ function Manage-Server {
             "1" { Start-Server (Read-EnvFile) }
             "2" {
                 $linksPath = Join-Path $ProjectRoot "frp_info.config"
-                if (Test-Path $linksPath) { Get-Content -LiteralPath $linksPath }
+                if (Test-Path $linksPath) { Ensure-Python; Invoke-Python @("runtime_config.py", "--show-links", $linksPath) }
                 else { Write-Info "Chua co link. Hay khoi dong server truoc." }
             }
             "0" { return }
@@ -357,7 +409,8 @@ try {
         Write-Host " 4. Quan ly Service"
         Write-Host " 5. Go cai dat"
         Write-Host " 6. Thoat"
-        $choice = (Read-Host " Chon [1-6]").Trim()
+        Write-Host " 7. Cau hinh nang cao (WARP / ECH / TLS / logger / Base64)"
+        $choice = (Read-Host " Chon [1-7]").Trim()
         switch ($choice) {
             "1" { Configure-QuickTunnel }
             "2" { Configure-NamedTunnel }
@@ -365,6 +418,7 @@ try {
             "4" { Manage-Server }
             "5" { Remove-RuntimeFiles }
             "6" { break mainMenu }
+            "7" { Configure-Advanced }
             default { Write-Err "Lua chon khong hop le." }
         }
         if (-not $NoPause) { [void](Read-Host " Press Enter de tiep tuc") }

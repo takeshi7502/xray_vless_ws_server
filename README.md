@@ -8,6 +8,30 @@ The idea of this project came from here: [The Anatomy of a Loophole: A Tech-Enth
 
 ---
 
+## Upstream Update (2026-10-20)
+
+Integrated upstream through `7503b16` while retaining this fork's Quick / Named / Direct
+modes, No TLS options, systemd and Windows/Termux launchers. New options include
+MobiFone/VNPT/TikTok addresses, optional DNS ECH, xHTTP `auto`, IPv6 listeners,
+an independent TLS listener, WARP `ip6only` and a password-protected local logger.
+Existing `.env` values are preserved; select new addresses from the setup menu.
+
+Use menu **7** for advanced options. Raw `frp_info.config` remains the default;
+`frp_info.base64` is also generated. See [.env.example](.env.example) and the
+[integration decisions and migration guide](docs/UPSTREAM_INTEGRATION.md).
+
+### Packet Inspection
+
+Upstream's captures illustrate WebSocket over TCP/TLS and xHTTP over HTTP/3 (QUIC):
+
+![WebSocket capture](docs/images/vless_websocket_wireshark.jpg)
+![xHTTP over HTTP/3 capture](docs/images/vless_xhttp_wireshark.jpg)
+
+QUIC Initial packet secrets are publicly derivable; a passive analyzer can recover
+the ClientHello without session keys. HTTP/3 alone does not hide SNI. ECH can protect
+the inner ClientHello when the server, DNS records and client support it. These captures
+do not establish carrier billing behavior or universal speed/security advantages.
+
 ## Architecture: PoC vs. Custom Domain & Production
 
 Understanding the progression from temporary testing environments to custom domains and commercial production infrastructure:
@@ -129,13 +153,14 @@ python main.py
 ## Configuration (`.env`)
 
 ```ini
-PORT=127.0.0.1:8888,0.0.0.0:443,0.0.0.0:80
-XRAY_UUID=5ccad305-e243-4bb2-abf0-1e37189ce4e8
-FAKE_SNI=api24-normal-alisg.tiktokv.com
+RUN_MODE=named_tunnel
+PORT=127.0.0.1:8888
+XRAY_UUID=
+FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone
 WS_PATH=/vless
 WS_HOST=v2ray.yourdomain.com
-TRANSPORT=WebSocket,xhttp
-XHTTP_MODE=packet-up
+TRANSPORT=websocket,xhttp
+XHTTP_MODE=auto
 TUNNEL_TOKEN=eyJhSWQiOiI...
 ENABLE_WARP=false
 WEBHOOK_URL=
@@ -144,15 +169,16 @@ WEBHOOK_URL=
 
 ### Parameter Description:
 
-* **`PORT`**: Comma-separated list of inbound ports/interfaces for Xray.
+* **`RUN_MODE`**: Explicitly choose `quick_tunnel`, `named_tunnel`, or `direct`. A token alone does not switch modes.
+* **`PORT`**: Comma-separated plaintext inbound ports/interfaces for Xray. A port number of 443 does not enable TLS; use `TLS_PORT` with supplied certificate files for that.
 * **`XRAY_UUID`**: UUID string used for VLESS client authentication.
-* **`FAKE_SNI`**: Zero-rated domain used by clients for DNS/IP resolution (e.g., TikTok CDN domain).
-* **`WS_PATH`**: Fixed WebSocket/xHTTP path: `/vless`.
+* **`FAKE_SNI`**: Client destination addresses for DNS/IP resolution, not TLS SNI. Preset names do not guarantee unmetered carrier data.
+* **`WS_PATH`**: WebSocket/xHTTP path; defaults to `/vless`.
 * **`WS_HOST`**: Custom domain for your Named Tunnel, or `trycloudflare.com` for quick temporary tunnels.
 * **`TRANSPORT`**: `websocket`, `xhttp`, or `websocket,xhttp` to run both at once. See [Transport Comparison](#transport-comparison-websocket-vs-xhttp) above. Dual mode transparently demuxes both transports over the same public port/path — no extra Cloudflare configuration needed.
-* **`XHTTP_MODE`**: `packet-up` (recommended, most CDN-compatible), `stream-up`, or `stream-one`. Only used when `TRANSPORT` includes `xhttp`.
+* **`XHTTP_MODE`**: `auto` (default), `packet-up`, `stream-up`, or `stream-one`. Only used when `TRANSPORT` includes `xhttp`; existing explicit values are preserved.
 * **`TUNNEL_TOKEN`**: Cloudflare Tunnel Token for persistent custom domain setup. Leave blank to use free temporary `trycloudflare.com` URLs.
-* **`ENABLE_WARP`**: Set to `true` to route Xray outbound through Cloudflare WARP (via `wgcf`).
+* **`ENABLE_WARP`**: `false` disables WARP, `true` routes all outbound traffic through WARP, `ip6only` routes IPv6 destinations through WARP and keeps IPv4 direct.
 * **`WEBHOOK_URL`**: Optional endpoint to receive connection payloads upon tunnel initialization.
 
 ---

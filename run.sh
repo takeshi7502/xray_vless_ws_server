@@ -16,13 +16,16 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 DEF_PORT_QUICK="127.0.0.1:8888"
 DEF_PORT_NAMED="127.0.0.1:8888"
 DEF_PORT_DIRECT="0.0.0.0:80"
-DEF_FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
+LEGACY_FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
+NEW_FAKE_SNI="bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone"
+DEF_FAKE_SNI="$LEGACY_FAKE_SNI,$NEW_FAKE_SNI"
 DEF_WS_PATH="/vless"
 DEF_WS_HOST="trycloudflare.com"
 DEF_TRANSPORT="websocket,xhttp"
-DEF_XHTTP_MODE="packet-up"
+DEF_XHTTP_MODE="auto"
 
-RUN_MODE=""; PORT=""; UUID=""; FAKE_SNI=""; WS_PATH=""; WS_HOST=""; TUNNEL_TOKEN=""; ENABLE_WARP="false"; WEBHOOK_URL=""; TRANSPORT="websocket,xhttp"; XHTTP_MODE="packet-up"; COUNTRY_CODE=""; CUSTOM_DOMAIN=""; PORT_MODE="443"
+RUN_MODE=""; PORT=""; UUID=""; FAKE_SNI=""; WS_PATH=""; WS_HOST=""; TUNNEL_TOKEN=""; ENABLE_WARP="false"; WEBHOOK_URL=""; TRANSPORT="websocket,xhttp"; XHTTP_MODE="auto"; COUNTRY_CODE=""; CUSTOM_DOMAIN=""; PORT_MODE="443"
+DNSECH=""; TLS_PORT=""; TLS_KEY=""; TLS_PEM=""; PASSWORD=""; LOGGER_HOST="127.0.0.1"; DEBUG_MODE="false"; FRP_INFO_FORMAT="plain"
 
 header(){ echo; echo -e "${CYAN}===================================================${NC}"; echo -e "${GREEN} $1${NC}"; echo -e "${CYAN}===================================================${NC}"; }
 ok(){ echo -e " ${GREEN}[OK]${NC} $1"; }
@@ -50,24 +53,36 @@ ask_country(){
     [ -n "$COUNTRY_CODE" ] && ok "Country: $COUNTRY_CODE" || info "No country flag."
 }
 ask_fake_sni(){
-    local choice default_choice="3"
+    local choice default_choice="7"
     case "$FAKE_SNI" in
         "api24-normal-alisg.tiktokv.com#FreeTiktok"|"api24-normal-alisg.tiktokv.com#Free Tiktok") default_choice="1" ;;
         "172.67.168.158#FreeVina Ko Nen"|"172.67.168.158#Free Vina Ko Nen") default_choice="2" ;;
-        "$DEF_FAKE_SNI"|"api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen"|"") ;;
+        "$LEGACY_FAKE_SNI"|"api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen") default_choice="3" ;;
+        "vega-prime.huskydg.dpdns.org#Free Mobifone") default_choice="4" ;;
+        "alpha-rigel-core.huskydg.dpdns.org#Free VNPT") default_choice="5" ;;
+        "$NEW_FAKE_SNI") default_choice="6" ;;
+        "$DEF_FAKE_SNI"|"") ;;
         *) default_choice="tuy chinh" ;;
     esac
     echo -e " ${BLUE}[i]${NC}  FAKE_SNI selection:"
     echo "   1. FreeTiktok  (api24-normal-alisg.tiktokv.com)"
     echo "   2. FreeVina Ko Nen  (172.67.168.158)"
-    echo "   3. Ca hai (mac dinh)"
+    echo "   3. Hai address cu"
+    echo "   4. Free Mobifone (vega-prime.huskydg.dpdns.org)"
+    echo "   5. Free VNPT (alpha-rigel-core.huskydg.dpdns.org)"
+    echo "   6. Tat ca address moi cua tac gia (TikTok + VNPT + Mobifone)"
+    echo "   7. Ca cu va moi (mac dinh cho cai moi)"
     echo "   Hoac nhap gia tri FAKE_SNI tuy chinh"
-    read -r -p " Chon [1/2/3/tuy chinh] [$default_choice]: " choice
+    read -r -p " Chon [1-7/tuy chinh] [$default_choice]: " choice
     choice="${choice:-$default_choice}"
     case "$choice" in
         1) FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok" ;;
         2) FAKE_SNI="172.67.168.158#FreeVina Ko Nen" ;;
-        3) FAKE_SNI="$DEF_FAKE_SNI" ;;
+        3) FAKE_SNI="$LEGACY_FAKE_SNI" ;;
+        4) FAKE_SNI="vega-prime.huskydg.dpdns.org#Free Mobifone" ;;
+        5) FAKE_SNI="alpha-rigel-core.huskydg.dpdns.org#Free VNPT" ;;
+        6) FAKE_SNI="$NEW_FAKE_SNI" ;;
+        7) FAKE_SNI="$DEF_FAKE_SNI" ;;
         "tuy chinh") ;;
         *) FAKE_SNI="$choice" ;;
     esac
@@ -96,10 +111,11 @@ ask_transport(){
         echo "   1. packet-up"
         echo "   2. stream-up"
         echo "   3. stream-one"
-        case "$XHTTP_MODE" in stream-up) mode_choice=2 ;; stream-one) mode_choice=3 ;; *) mode_choice=1 ;; esac
-        read -r -p " Chon xHTTP mode [1/2/3] [$mode_choice]: " choice
+        echo "   4. auto (mac dinh moi)"
+        case "$XHTTP_MODE" in packet-up) mode_choice=1 ;; stream-up) mode_choice=2 ;; stream-one) mode_choice=3 ;; *) mode_choice=4 ;; esac
+        read -r -p " Chon xHTTP mode [1/2/3/4] [$mode_choice]: " choice
         choice="${choice:-$mode_choice}"
-        case "$choice" in 1) XHTTP_MODE="packet-up" ;; 2) XHTTP_MODE="stream-up" ;; 3) XHTTP_MODE="stream-one" ;; *) warn "Mode khong hop le; giu lai $XHTTP_MODE." ;; esac
+        case "$choice" in 1) XHTTP_MODE="packet-up" ;; 2) XHTTP_MODE="stream-up" ;; 3) XHTTP_MODE="stream-one" ;; 4) XHTTP_MODE="auto" ;; *) warn "Mode khong hop le; giu lai $XHTTP_MODE." ;; esac
     fi
     if [[ "$TRANSPORT" == *xhttp* ]]; then
         ok "Transport: $TRANSPORT (xHTTP mode: $XHTTP_MODE)"
@@ -277,6 +293,8 @@ write_env(){
         echo "COUNTRY_CODE=$COUNTRY_CODE"
         echo "CUSTOM_DOMAIN=$CUSTOM_DOMAIN"
         echo "PORT_MODE=$PORT_MODE"
+        echo "DNSECH=$DNSECH"; echo "TLS_PORT=$TLS_PORT"; echo "TLS_KEY=$TLS_KEY"; echo "TLS_PEM=$TLS_PEM"
+        echo "PASSWORD=$PASSWORD"; echo "LOGGER_HOST=$LOGGER_HOST"; echo "DEBUG_MODE=$DEBUG_MODE"; echo "FRP_INFO_FORMAT=$FRP_INFO_FORMAT"
     } > .env
     ok "Da ghi .env (RUN_MODE=$RUN_MODE)"
 }
@@ -284,7 +302,7 @@ write_env(){
 load_existing(){
     [ -f .env ] || return 0
     UUID="$(env_get XRAY_UUID)"; FAKE_SNI="$(env_get FAKE_SNI)"
-    WS_PATH="$DEF_WS_PATH"; WS_HOST="$(env_get WS_HOST)"
+    WS_PATH="$(env_get WS_PATH)"; WS_PATH="${WS_PATH:-$DEF_WS_PATH}"; WS_HOST="$(env_get WS_HOST)"
     TUNNEL_TOKEN="$(env_get TUNNEL_TOKEN)"; ENABLE_WARP="$(env_get ENABLE_WARP)"
     WEBHOOK_URL="$(env_get WEBHOOK_URL)"; TRANSPORT="$(env_get TRANSPORT)"; XHTTP_MODE="$(env_get XHTTP_MODE)"
     XHTTP_MODE="${XHTTP_MODE:-$DEF_XHTTP_MODE}"
@@ -292,6 +310,44 @@ load_existing(){
     CUSTOM_DOMAIN="$(env_get CUSTOM_DOMAIN)"
     PORT_MODE="$(env_get PORT_MODE)"
     PORT_MODE="${PORT_MODE:-443}"
+    ENABLE_WARP="${ENABLE_WARP:-false}"
+    DNSECH="$(env_get DNSECH)"; TLS_PORT="$(env_get TLS_PORT)"; TLS_KEY="$(env_get TLS_KEY)"; TLS_PEM="$(env_get TLS_PEM)"
+    PASSWORD="$(env_get PASSWORD)"; LOGGER_HOST="$(env_get LOGGER_HOST)"; LOGGER_HOST="${LOGGER_HOST:-127.0.0.1}"
+    DEBUG_MODE="$(env_get DEBUG_MODE)"; DEBUG_MODE="${DEBUG_MODE:-false}"
+    FRP_INFO_FORMAT="$(env_get FRP_INFO_FORMAT)"; FRP_INFO_FORMAT="${FRP_INFO_FORMAT:-plain}"
+}
+
+advanced_settings(){
+    [ -f .env ] || { err "Hay setup mot che do truoc."; return 1; }
+    load_existing
+    RUN_MODE="$(env_get RUN_MODE)"; PORT="$(env_get PORT)"
+    header "Cau hinh nang cao"
+    info "Enter de giu gia tri; nhap - de xoa mot gia tri tuy chon."
+    local value
+    value="$(ask_val 'WARP: false / true / ip6only' "$ENABLE_WARP")"
+    case "$value" in false|true|ip6only) ENABLE_WARP="$value" ;; *) err "WARP khong hop le"; return 1 ;; esac
+    DNSECH="$(ask_val 'ECH DoH URL (vd https://1.1.1.1/dns-query)' "$DNSECH")"; [ "$DNSECH" = "-" ] && DNSECH=""
+    TLS_PORT="$(ask_val 'TLS listener (vd 0.0.0.0:443 hoac [::]:443)' "$TLS_PORT")"; [ "$TLS_PORT" = "-" ] && TLS_PORT=""
+    if [ -n "$TLS_PORT" ]; then
+        TLS_PEM="$(ask_val 'TLS certificate PEM path' "$TLS_PEM")"
+        TLS_KEY="$(ask_val 'TLS private key path' "$TLS_KEY")"
+        warn "TLS listener chi phuc vu transport dau tien. Can cert/key co san; khong tu tao cert."
+    fi
+    LOGGER_HOST="$(ask_val 'Logger listen IP (nen giu localhost)' "$LOGGER_HOST")"
+    read -r -s -p " Logger password (Enter giu cu, - de xoa): " value; echo
+    if [ "$value" = "-" ]; then PASSWORD=""; elif [ -n "$value" ]; then PASSWORD="$value"; fi
+    value="$(ask_val 'Debug logs: false / true' "$DEBUG_MODE")"
+    case "$value" in false|true) DEBUG_MODE="$value" ;; *) err "Debug khong hop le"; return 1 ;; esac
+    value="$(ask_val 'frp_info.config format: plain / base64' "$FRP_INFO_FORMAT")"
+    case "$value" in plain|base64) FRP_INFO_FORMAT="$value" ;; *) err "Format khong hop le"; return 1 ;; esac
+    write_env || return 1
+    info "Da luu. Khoi dong lai server de ap dung."
+}
+
+show_links(){
+    local py
+    py="$(detect_python)" || return 1
+    "$py" "$SCRIPT_DIR/runtime_config.py" --show-links "$SCRIPT_DIR/frp_info.config"
 }
 
 # ==================== Systemd ====================
@@ -344,7 +400,7 @@ wait_and_show_links(){
             echo
             header "Link VLESS"
             echo
-            cat "$SCRIPT_DIR/frp_info.config"
+            show_links
             echo
             ok "Sao chep mot link ben tren vao v2rayNG / Shadowrocket."
             if [ "$RUN_MODE" = "quick_tunnel" ]; then
@@ -394,7 +450,7 @@ quick_mode(){
     ask_fake_sni
 
     setup_step "2/4" "Port link VLESS"
-    WS_PATH="$DEF_WS_PATH"
+    WS_PATH="${WS_PATH:-$DEF_WS_PATH}"
     quick_tunnel_transport
     RUN_MODE="quick_tunnel"; PORT="$DEF_PORT_QUICK"
     [ -n "$WS_HOST" ] && [ "$WS_HOST" != "$DEF_WS_HOST" ] && CUSTOM_DOMAIN="$WS_HOST"
@@ -433,7 +489,7 @@ named_mode(){
     ask_fake_sni
 
     setup_step "3/6" "Diem cuoi transport"
-    WS_PATH="$DEF_WS_PATH"; TRANSPORT="${TRANSPORT:-$DEF_TRANSPORT}"
+    WS_PATH="${WS_PATH:-$DEF_WS_PATH}"; TRANSPORT="${TRANSPORT:-$DEF_TRANSPORT}"
     ask_transport
 
     setup_step "4/6" "Port link VLESS"
@@ -472,7 +528,7 @@ direct_mode(){
     ask_fake_sni
 
     setup_step "3/6" "Diem cuoi transport"
-    WS_PATH="$DEF_WS_PATH"; TRANSPORT="${TRANSPORT:-$DEF_TRANSPORT}"
+    WS_PATH="${WS_PATH:-$DEF_WS_PATH}"; TRANSPORT="${TRANSPORT:-$DEF_TRANSPORT}"
     ask_transport
 
     setup_step "4/6" "Port link VLESS"
@@ -527,7 +583,7 @@ service_manager(){
             4) info "Nhan Ctrl+C de dung xem log."; echo; journalctl -u "$SERVICE_NAME" -f --no-pager -n 50 ;;
             5) systemctl status "$SERVICE_NAME" --no-pager -l 2>/dev/null || info "Chua cai." ;;
             6) if [ -f "$SCRIPT_DIR/frp_info.config" ] && [ -s "$SCRIPT_DIR/frp_info.config" ]; then
-                   header "Link VLESS"; echo; cat "$SCRIPT_DIR/frp_info.config"; echo
+                   header "Link VLESS"; echo; show_links; echo
                else info "Chua co link. Hay khoi dong service truoc."; fi ;;
             7) install_service ;;
             8) if [ -f "$SERVICE_FILE" ]; then
@@ -568,7 +624,7 @@ uninstall_all(){
     # File
     local removed=0
     for f in xray xray.exe cloudflared cloudflared.exe wgcf-cli wgcf-cli.exe \
-             .env config.json wgcf.json wgcf.xray.json frp_info.json frp_info.config \
+             .env config.json wgcf.json wgcf.xray.json frp_info.json frp_info.config frp_info.base64 \
              frpc.toml config.yml xray.zip cloudflared_temp.archive wgcf-cli.tar.zstd; do
         [ -e "$f" ] && rm -rf -- "$f" && { ok "Removed $f"; removed=1; }
     done
@@ -598,7 +654,8 @@ while true; do
     echo " 4. Quan ly Service"
     echo " 5. Go cai dat"
     echo " 6. Thoat"
-    read -r -p " Chon [1-6]: " MENU_CHOICE
+    echo " 7. Cau hinh nang cao (WARP / ECH / TLS / logger / Base64)"
+    read -r -p " Chon [1-7]: " MENU_CHOICE
     case "$MENU_CHOICE" in
         1) quick_mode ;;
         2) named_mode ;;
@@ -606,6 +663,7 @@ while true; do
         4) service_manager ;;
         5) uninstall_all ;;
         6) exit 0 ;;
+        7) advanced_settings ;;
         *) err "Lua chon khong hop le" ;;
     esac
     pause_next

@@ -1,100 +1,47 @@
 import os
 import platform
-import sys
-import shutil
 import requests
-import zstandard as zstd
-import tarfile
 
 WGCF_VERSION = "v0.3.6"
-BASE_URL = f"https://github.com/ArchiveNetwork/wgcf-cli/releases/download/{WGCF_VERSION}"
+BASE_URL = f"https://github.com/vincentng295/wgcf-cli/releases/download/{WGCF_VERSION}"
+
 
 def get_os_name():
-    sys_type = platform.system().lower()
+    system = platform.system().lower()
     arch = platform.machine().lower()
+    if os.getenv("TERMUX_VERSION") or "com.termux" in os.getenv("PREFIX", ""):
+        system = "android"
+    suffixes = {
+        "windows": {"amd64": "windows-64.exe", "x86_64": "windows-64.exe", "arm64": "windows-arm64-v8a.exe", "aarch64": "windows-arm64-v8a.exe", "x86": "windows-32.exe", "i686": "windows-32.exe"},
+        "linux": {"amd64": "linux-64", "x86_64": "linux-64", "arm64": "linux-arm64-v8a", "aarch64": "linux-arm64-v8a", "armv7l": "linux-arm32-v7a", "arm": "linux-arm32-v7a"},
+        "darwin": {"arm64": "macos-arm64-v8a", "aarch64": "macos-arm64-v8a", "x86_64": "macos-64"},
+        "android": {"arm64": "android-arm64-v8a", "aarch64": "android-arm64-v8a", "amd64": "android-amd64", "x86_64": "android-amd64"},
+    }
+    suffix = suffixes.get(system, {}).get(arch)
+    if not suffix:
+        raise RuntimeError(f"Unsupported wgcf platform: {system} {arch}")
+    return "wgcf-cli-" + suffix, "wgcf-cli.exe" if system == "windows" else "wgcf-cli"
 
-    if sys_type == "windows":
-        if arch in ["x86_64", "amd64"]:
-            return "windows-64.tar.zstd", "wgcf-cli.exe"
-        if arch in ["aarch64", "arm64"]:
-            return "windows-arm64-v8a.tar.zstd", "wgcf-cli.exe"
-        return "windows-32.tar.zstd", "wgcf-cli.exe"
-
-    if sys_type == "linux":
-        if arch in ["aarch64", "arm64"]:
-            return "linux-arm64-v8a.tar.zstd", "wgcf-cli"
-        if arch in ["armv7l", "arm"]:
-            return "linux-arm32-v7a.tar.zstd", "wgcf-cli"
-        return "linux-64.tar.zstd", "wgcf-cli"
-
-    if sys_type == "darwin": 
-        if arch in ["aarch64", "arm64"]:
-            return "macos-arm64-v8a.tar.zstd", "wgcf-cli"
-        return "macos-64.tar.zstd", "wgcf-cli"
-
-    if sys_type == "android":
-        if arch in ["aarch64", "arm64"]:
-            return "android-arm64-v8a.tar.zstd", "wgcf-cli"
-        
-    raise Exception(f"OS {sys_type} {arch} not supported.")
-
-def download_file(url, filename):
-    print(f"Đang tải: {url}")
-    r = requests.get(url, stream=True)
-    r.raise_for_status()
-    with open(filename, "wb") as f:
-        for chunk in r.iter_content(chunk_size=8192):
-            f.write(chunk)
-
-def extract_tar_zstd(archive_path, extract_dir):
-   
-    dctx = zstd.ZstdDecompressor()
-    tar_path = archive_path.replace(".zstd", "")
-    
-    with open(archive_path, 'rb') as ifh, open(tar_path, 'wb') as ofh:
-        dctx.copy_stream(ifh, ofh)
-        
-    with tarfile.open(tar_path, "r:") as tar:
-        tar.extractall(path=extract_dir)
-        
-    os.remove(tar_path)
 
 def install_wgcf():
-    archive_name, binary_name = get_os_name()
-    url = f"{BASE_URL}/wgcf-cli-{archive_name}"
-    archive_path = "wgcf-cli.tar.zstd"
-    extract_dir = "wgcf_bin"
-
-   
-    download_file(url, archive_path)
-
-   
-    if os.path.exists(extract_dir):
-        shutil.rmtree(extract_dir)
-
-   
-    print("Đang giải nén...")
+    asset, destination = get_os_name()
+    temporary = destination + ".download"
     try:
-        extract_tar_zstd(archive_path, extract_dir)
+        with requests.get(f"{BASE_URL}/{asset}", stream=True, timeout=(15, 120)) as response:
+            response.raise_for_status()
+            with open(temporary, "wb") as output:
+                for chunk in response.iter_content(chunk_size=65536):
+                    output.write(chunk)
+        if not os.path.getsize(temporary):
+            raise RuntimeError("Downloaded wgcf binary is empty")
+        if os.name != "nt":
+            os.chmod(temporary, 0o755)
+        os.replace(temporary, destination)
     finally:
-        if os.path.exists(archive_path):
-            os.remove(archive_path)
+        if os.path.exists(temporary):
+            os.remove(temporary)
+    print(f"[OK] Installed wgcf: {os.path.abspath(destination)}")
 
-   
-    src = os.path.join(extract_dir, binary_name)
-    dst = os.path.join(".", binary_name)
-
-    if os.path.exists(dst):
-        os.remove(dst)
-
-    shutil.move(src, dst)
-    shutil.rmtree(extract_dir)
-
-   
-    if platform.system().lower() in ["linux", "darwin"] or "ANDROID_DATA" in os.environ:
-        os.chmod(dst, 0o755)
-
-    print("Cài đặt thành công! File lưu tại:", os.path.abspath(dst))
 
 if __name__ == "__main__":
     install_wgcf()
