@@ -12,7 +12,7 @@ The idea of this project came from here: [The Anatomy of a Loophole: A Tech-Enth
 
 Integrated upstream through `7503b16` while retaining this fork's Quick / Named / Direct
 modes, No TLS options, systemd and Windows/Termux launchers. New options include
-MobiFone/VNPT/TikTok addresses, optional DNS ECH, xHTTP `auto`, IPv6 listeners,
+the MobiFone address alongside the existing addresses, optional DNS ECH, xHTTP `auto`, IPv6 listeners,
 an independent TLS listener, WARP `ip6only` and a password-protected local logger.
 Existing `.env` values are preserved; select new addresses from the setup menu.
 
@@ -156,7 +156,7 @@ python main.py
 RUN_MODE=named_tunnel
 PORT=127.0.0.1:8888
 XRAY_UUID=
-FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone
+FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVNPT,vega-prime.huskydg.dpdns.org#FreeMobiFone
 WS_PATH=/vless
 WS_HOST=v2ray.yourdomain.com
 TRANSPORT=websocket,xhttp

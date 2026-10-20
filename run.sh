@@ -16,8 +16,8 @@ SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 DEF_PORT_QUICK="127.0.0.1:8888"
 DEF_PORT_NAMED="127.0.0.1:8888"
 DEF_PORT_DIRECT="0.0.0.0:80"
-LEGACY_FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
-NEW_FAKE_SNI="bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone"
+LEGACY_FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVNPT"
+NEW_FAKE_SNI="vega-prime.huskydg.dpdns.org#FreeMobiFone"
 DEF_FAKE_SNI="$LEGACY_FAKE_SNI,$NEW_FAKE_SNI"
 DEF_WS_PATH="/vless"
 DEF_WS_HOST="trycloudflare.com"
@@ -53,36 +53,30 @@ ask_country(){
     [ -n "$COUNTRY_CODE" ] && ok "Country: $COUNTRY_CODE" || info "No country flag."
 }
 ask_fake_sni(){
-    local choice default_choice="7"
+    local choice default_choice="5"
     case "$FAKE_SNI" in
         "api24-normal-alisg.tiktokv.com#FreeTiktok"|"api24-normal-alisg.tiktokv.com#Free Tiktok") default_choice="1" ;;
-        "172.67.168.158#FreeVina Ko Nen"|"172.67.168.158#Free Vina Ko Nen") default_choice="2" ;;
+        "172.67.168.158#FreeVNPT"|"172.67.168.158#FreeVina Ko Nen"|"172.67.168.158#Free Vina Ko Nen") default_choice="2" ;;
         "$LEGACY_FAKE_SNI"|"api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen") default_choice="3" ;;
-        "vega-prime.huskydg.dpdns.org#Free Mobifone") default_choice="4" ;;
-        "alpha-rigel-core.huskydg.dpdns.org#Free VNPT") default_choice="5" ;;
-        "$NEW_FAKE_SNI") default_choice="6" ;;
+        "$NEW_FAKE_SNI"|"vega-prime.huskydg.dpdns.org#Free Mobifone") default_choice="4" ;;
         "$DEF_FAKE_SNI"|"") ;;
         *) default_choice="tuy chinh" ;;
     esac
     echo -e " ${BLUE}[i]${NC}  FAKE_SNI selection:"
     echo "   1. FreeTiktok  (api24-normal-alisg.tiktokv.com)"
-    echo "   2. FreeVina Ko Nen  (172.67.168.158)"
+    echo "   2. FreeVNPT  (172.67.168.158)"
     echo "   3. Hai address cu"
-    echo "   4. Free Mobifone (vega-prime.huskydg.dpdns.org)"
-    echo "   5. Free VNPT (alpha-rigel-core.huskydg.dpdns.org)"
-    echo "   6. Tat ca address moi cua tac gia (TikTok + VNPT + Mobifone)"
-    echo "   7. Ca cu va moi (mac dinh cho cai moi)"
+    echo "   4. FreeMobiFone (vega-prime.huskydg.dpdns.org)"
+    echo "   5. Ca hai address cu + Mobifone (mac dinh cho cai moi)"
     echo "   Hoac nhap gia tri FAKE_SNI tuy chinh"
-    read -r -p " Chon [1-7/tuy chinh] [$default_choice]: " choice
+    read -r -p " Chon [1-5/tuy chinh] [$default_choice]: " choice
     choice="${choice:-$default_choice}"
     case "$choice" in
         1) FAKE_SNI="api24-normal-alisg.tiktokv.com#FreeTiktok" ;;
-        2) FAKE_SNI="172.67.168.158#FreeVina Ko Nen" ;;
+        2) FAKE_SNI="172.67.168.158#FreeVNPT" ;;
         3) FAKE_SNI="$LEGACY_FAKE_SNI" ;;
-        4) FAKE_SNI="vega-prime.huskydg.dpdns.org#Free Mobifone" ;;
-        5) FAKE_SNI="alpha-rigel-core.huskydg.dpdns.org#Free VNPT" ;;
-        6) FAKE_SNI="$NEW_FAKE_SNI" ;;
-        7) FAKE_SNI="$DEF_FAKE_SNI" ;;
+        4) FAKE_SNI="$NEW_FAKE_SNI" ;;
+        5) FAKE_SNI="$DEF_FAKE_SNI" ;;
         "tuy chinh") ;;
         *) FAKE_SNI="$choice" ;;
     esac

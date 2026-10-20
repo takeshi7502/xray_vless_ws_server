@@ -10,7 +10,7 @@ Một dự án Proof of Concept (PoC) tự động bằng Python phục vụ cho
 
 Đã tích hợp upstream đến `7503b16`, giữ ba chế độ Quick / Named / Direct,
 No TLS, systemd và các bản sửa Windows/Termux của fork. Bổ sung address
-MobiFone/VNPT/TikTok mới, DNS ECH tùy chọn, xHTTP `auto`, listener IPv6,
+MobiFone mới bên cạnh hai address cũ, DNS ECH tùy chọn, xHTTP `auto`, listener IPv6,
 listener TLS riêng, WARP `ip6only` và logger nội bộ có mật khẩu.
 Không ghi đè `.env` cũ; muốn dùng address mới thì chọn lại trong menu cấu hình.
 
@@ -154,7 +154,7 @@ python main.py
 RUN_MODE=named_tunnel
 PORT=127.0.0.1:8888
 XRAY_UUID=
-FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone
+FAKE_SNI=api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVNPT,vega-prime.huskydg.dpdns.org#FreeMobiFone
 WS_PATH=/vless
 WS_HOST=v2ray.tenmien.com
 TRANSPORT=websocket,xhttp

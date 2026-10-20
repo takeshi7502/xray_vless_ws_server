@@ -10,7 +10,7 @@ $Defaults = [ordered]@{
     RUN_MODE = "quick_tunnel"
     PORT = "127.0.0.1:8888"
     XRAY_UUID = ""
-    FAKE_SNI = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen,bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone"
+    FAKE_SNI = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVNPT,vega-prime.huskydg.dpdns.org#FreeMobiFone"
     WS_PATH = "/vless"
     WS_HOST = "trycloudflare.com"
     TRANSPORT = "websocket,xhttp"
@@ -30,8 +30,8 @@ $Defaults = [ordered]@{
     DEBUG_MODE = "false"
     FRP_INFO_FORMAT = "plain"
 }
-$LegacyAddresses = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
-$NewAddresses = "bright-sirius-star.huskydg.dpdns.org#Tiktok,alpha-rigel-core.huskydg.dpdns.org#Free VNPT,vega-prime.huskydg.dpdns.org#Free Mobifone"
+$LegacyAddresses = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVNPT"
+$NewAddresses = "vega-prime.huskydg.dpdns.org#FreeMobiFone"
 $EnvKeys = @($Defaults.Keys)
 $EnvPath = Join-Path $ProjectRoot ".env"
 $script:Python = $null
@@ -103,33 +103,29 @@ function Select-FakeSni($Settings) {
         "api24-normal-alisg.tiktokv.com#Free Tiktok" { "1" }
         "172.67.168.158#FreeVina Ko Nen" { "2" }
         "172.67.168.158#Free Vina Ko Nen" { "2" }
+        "172.67.168.158#FreeVNPT" { "2" }
         $LegacyAddresses { "3" }
+        $NewAddresses { "4" }
         "vega-prime.huskydg.dpdns.org#Free Mobifone" { "4" }
-        "alpha-rigel-core.huskydg.dpdns.org#Free VNPT" { "5" }
-        $NewAddresses { "6" }
-        $Defaults["FAKE_SNI"] { "7" }
+        $Defaults["FAKE_SNI"] { "5" }
         "api24-normal-alisg.tiktokv.com#Free Tiktok,172.67.168.158#Free Vina Ko Nen" { "3" }
-        "" { "7" }
+        "" { "5" }
         default { "tuy chinh" }
     }
     Write-Info "Chon domain hien trong ten link."
     Write-Host "   1. FreeTiktok  (api24-normal-alisg.tiktokv.com)"
-    Write-Host "   2. FreeVina Ko Nen  (172.67.168.158)"
+    Write-Host "   2. FreeVNPT  (172.67.168.158)"
     Write-Host "   3. Hai address cu"
-    Write-Host "   4. Free Mobifone (vega-prime.huskydg.dpdns.org)"
-    Write-Host "   5. Free VNPT (alpha-rigel-core.huskydg.dpdns.org)"
-    Write-Host "   6. Tat ca address moi cua tac gia (TikTok + VNPT + Mobifone)"
-    Write-Host "   7. Ca cu va moi (mac dinh cho cai moi)"
+    Write-Host "   4. FreeMobiFone (vega-prime.huskydg.dpdns.org)"
+    Write-Host "   5. Ca hai address cu + Mobifone (mac dinh cho cai moi)"
     Write-Host "   Hoac nhap gia tri tuy chinh."
-    $choice = Read-Value " Chon [1-7/tuy chinh]" $default
+    $choice = Read-Value " Chon [1-5/tuy chinh]" $default
     switch ($choice) {
         "1" { $Settings["FAKE_SNI"] = "api24-normal-alisg.tiktokv.com#FreeTiktok" }
-        "2" { $Settings["FAKE_SNI"] = "172.67.168.158#FreeVina Ko Nen" }
+        "2" { $Settings["FAKE_SNI"] = "172.67.168.158#FreeVNPT" }
         "3" { $Settings["FAKE_SNI"] = $LegacyAddresses }
-        "4" { $Settings["FAKE_SNI"] = "vega-prime.huskydg.dpdns.org#Free Mobifone" }
-        "5" { $Settings["FAKE_SNI"] = "alpha-rigel-core.huskydg.dpdns.org#Free VNPT" }
-        "6" { $Settings["FAKE_SNI"] = $NewAddresses }
-        "7" { $Settings["FAKE_SNI"] = $Defaults["FAKE_SNI"] }
+        "4" { $Settings["FAKE_SNI"] = $NewAddresses }
+        "5" { $Settings["FAKE_SNI"] = $Defaults["FAKE_SNI"] }
         "tuy chinh" { }
         default { $Settings["FAKE_SNI"] = $choice.Trim() }
     }

@@ -8,12 +8,8 @@ from pathlib import Path
 from urllib.parse import quote, urlencode, urlparse
 
 
-LEGACY_ADDRESSES = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVina Ko Nen"
-UPSTREAM_ADDRESSES = (
-    "bright-sirius-star.huskydg.dpdns.org#Tiktok,"
-    "alpha-rigel-core.huskydg.dpdns.org#Free VNPT,"
-    "vega-prime.huskydg.dpdns.org#Free Mobifone"
-)
+LEGACY_ADDRESSES = "api24-normal-alisg.tiktokv.com#FreeTiktok,172.67.168.158#FreeVNPT"
+UPSTREAM_ADDRESSES = "vega-prime.huskydg.dpdns.org#FreeMobiFone"
 DEFAULT_ADDRESSES = LEGACY_ADDRESSES + "," + UPSTREAM_ADDRESSES
 
 
@@ -142,8 +138,18 @@ def build_links(client_id, addresses, transports, host, path, port_mode="443", x
         address = address.strip()
         if not address:
             continue
-        friendly = {"api24-normal-alisg.tiktokv.com": "FreeTiktok", "172.67.168.158": "FreeVina Ko Nen"}
-        label = {"Free Tiktok": "FreeTiktok", "Free Vina Ko Nen": "FreeVina Ko Nen"}.get(remark.strip(), remark.strip()) or friendly.get(address, address)
+        friendly = {
+            "api24-normal-alisg.tiktokv.com": "FreeTiktok",
+            "172.67.168.158": "FreeVNPT",
+            "vega-prime.huskydg.dpdns.org": "FreeMobiFone",
+        }
+        aliases = {
+            "Free Tiktok": "FreeTiktok",
+            "FreeVina Ko Nen": "FreeVNPT",
+            "Free Vina Ko Nen": "FreeVNPT",
+            "Free Mobifone": "FreeMobiFone",
+        }
+        label = aliases.get(remark.strip(), remark.strip()) or friendly.get(address, address)
         for transport in transports:
             params = {"type": "xhttp" if transport == "xhttp" else "ws", "encryption": "none"}
             name = quote(f"{prefix}{label} {'XHTTP' if transport == 'xhttp' else 'WS'}", safe="")

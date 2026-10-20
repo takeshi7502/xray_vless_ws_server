@@ -20,7 +20,7 @@ reapplying or undoing fork-specific behavior. No automatic deployment is perform
 
 | Upstream commit | Change | Integration decision |
 | --- | --- | --- |
-| `7503b16` | New client addresses | Add TikTok, VNPT and MobiFone presets alongside the two old presets. Existing `.env` is not overwritten. |
+| `7503b16` | New client addresses | Add only the new MobiFone address alongside the two old presets, per fork requirements. Do not include upstream's new TikTok/VNPT presets. Existing `.env` is not overwritten. |
 | `cf8e18f` | WARP IPv6-only mode | Add `ENABLE_WARP=ip6only`, IPv4 endpoint bootstrap and IPv6 destination routing. Keep IPv4 direct. |
 | `fc1213e` | Routing-only sniffing | Enable `routeOnly` and HTTP/TLS/QUIC sniffing on generated inbounds. |
 | `34491bd` | Correct ECH parameter | Encode `actual-host+DoH-URL`, including dynamically discovered Quick Tunnel hostnames. |
@@ -29,7 +29,7 @@ reapplying or undoing fork-specific behavior. No automatic deployment is perform
 | `2da87d7` | DNS ECH support | Add optional client-side ECH URL parameter; does not enable ECH on a server or guarantee client support. |
 | `5af74e4` | xHTTP auto mode | Default to `auto` for new installations; retain explicit old values. Update both menus. |
 | `83198ec` | Remove No TLS | Intentionally retain the fork's port 80 / `PORT_MODE` options. Direct mode still exports TLS links only, as before. |
-| `03a7c2c` | Replace default destination addresses | Include new defaults but preserve old addresses and user-defined values. Do not hardcode dynamically resolved MobiFone IPs. |
+| `03a7c2c` | Replace default destination addresses | Preserve both old addresses and user-defined values; add only the new MobiFone address. Do not hardcode dynamically resolved MobiFone IPs. |
 | `8c0f225` | Require supplied TLS certificates | Require PEM certificate/key files when TLS listener is enabled. Validate their key pair before launching. No self-signed auto-generation. |
 | `ccfc756` | Public-IP diagnostic | Best-effort global IP lookup warning in Direct mode only; do not reject NAT or private-network tunnel hosts. |
 | `7220c84` | IPv6 listeners | Parse bracketed addresses, support IPv6 demux sockets and bracket Cloudflared origin URLs. |
@@ -46,7 +46,7 @@ reapplying or undoing fork-specific behavior. No automatic deployment is perform
 ## Using the New Options
 
 - Open menu **7** in `bash run.sh` or `run-windows.bat` for WARP, ECH, TLS, logger and output format. Restart after saving. Existing mode setup menus preserve these options.
-- Select address preset **4** for MobiFone, **5** for VNPT, **6** for all new upstream addresses, or **7** for old and new together. These are client destinations, not TLS SNI. Carrier billing/availability must be tested separately; preset names are not a guarantee.
+- Select address preset **4** for MobiFone or **5** for both old addresses plus MobiFone. Preset **3** keeps only the two old addresses. These are client destinations, not TLS SNI. Carrier billing/availability must be tested separately; preset names are not a guarantee.
 - Quick Tunnel remains WebSocket-only in the menus. Named and Direct retain dual transport support.
 - ECH requires client support and appropriate DNS HTTPS/ECH records for the actual tunnel hostname. An HTTPS DoH URL alone cannot provide those records.
 - `TLS_PORT=0.0.0.0:443` requires an existing `TLS_PEM` fullchain and matching unencrypted `TLS_KEY`. For Cloudflare Full (strict), use a certificate valid for your origin hostname and choose a single transport. TLS serves only the first listed transport; choose `TRANSPORT=xhttp` if that should be xHTTP. Other transport links need the plaintext origin. `PORT` remains plaintext and independent.
